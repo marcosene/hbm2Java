@@ -45,13 +45,21 @@ public interface Utils {
                 final Element childElement = (Element) childNode; // Cast to Element
 
                 // Check if the element has the desired tag name
-                if (childElement.getTagName().equals(tagName)) {
+                if (tagName == null || childElement.getTagName().equals(tagName)) {
                     matchingChildren.add(childElement);
                 }
             }
         }
 
         return matchingChildren;
+    }
+
+    static Element getFirstChildByTag(final Element parentElement, final String tagName) {
+        final List<Element> elements = getChildrenByTag(parentElement, tagName);
+        if (elements.isEmpty()) {
+            return null;
+        }
+        return elements.getFirst();
     }
 
     static String mapHibernateTypeToJava(final String hibernateType) {
@@ -87,6 +95,15 @@ public interface Utils {
                 "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
         ));
         return nativeTypes.contains(type);
+    }
+
+    static String getDiscriminatorType(final String type) {
+        return switch (type) {
+            case "string" -> "DiscriminatorType.STRING";
+            case "char" -> "DiscriminatorType.CHAR";
+            case "int" -> "DiscriminatorType.INTEGER";
+            default -> throw new IllegalStateException("Unexpected discriminator type: " + type);
+        };
     }
 
     static String lowercaseUntilLastUpper(final String input) {
@@ -213,6 +230,8 @@ public interface Utils {
         try (final BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
             writer.write(entityCode.toString());
         }
+
+        LOG.info("Entity successfully written to " + filename);
     }
 
     static boolean createFolder(final String path) {

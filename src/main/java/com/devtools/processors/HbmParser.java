@@ -20,11 +20,11 @@ import org.apache.commons.logging.LogFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import com.devtools.Utils;
 import com.devtools.definition.Attributes;
+import com.devtools.definition.JpaBase;
 import com.devtools.definition.JpaColumn;
 import com.devtools.definition.JpaEntity;
 import com.devtools.definition.JpaNamedQuery;
@@ -36,39 +36,24 @@ public class HbmParser {
 
     private static final Log LOG = LogFactory.getLog(HbmParser.class);
 
-    public JpaEntity parse(final String filePath) throws Exception {
-        final JpaEntity entityDef = new JpaEntity();
-
+    public JpaBase parse(final String filePath) throws Exception {
+        final JpaBase jpaBase = new JpaBase();
         final Element root = getRootElement(filePath);
+        final String defaultCascade = root.getAttribute(Attributes.ATTR_DEFAULT_CASCADE);
 
-        final Element classElement = parseEntityDefinition(root, entityDef);
+        parseClasses(root, jpaBase, defaultCascade);
 
-        if (classElement != null) {
-            parseIdAndGenerator(classElement, entityDef);
-
-            parseNaturalIds(classElement, entityDef);
-
-            parseVersions(classElement, entityDef);
-
-            parseProperties(classElement, entityDef);
-
-            parseProperty(classElement, entityDef, null, JpaColumn.NaturalId.NONE, true);
-
-            parseRelationships(classElement, entityDef);
-
-            parseCollections(classElement, entityDef);
-
-            parseEmbeddedFields(classElement, entityDef);
+        final JpaEntity queriesEntity = new JpaEntity();
+        parseQueries(root, queriesEntity);
+        if (!queriesEntity.getNamedQueries().isEmpty()) {
+            final String fileName = Utils.getFileNameNoExtensions(filePath);
+            queriesEntity.setClassName(fileName);
+            jpaBase.addEntity(queriesEntity);
         }
-
-        parseQueries(root, entityDef);
-
-        // in case of *.hbm.xml file containing only queries
-        verifyUtilitiesFile(filePath, entityDef);
 
         validateMissingImplementations(root);
 
-        return entityDef;
+        return jpaBase;
     }
 
     private Element getRootElement(final String filePath)
@@ -89,113 +74,112 @@ public class HbmParser {
         return document.getDocumentElement();
     }
 
-    private Element parseEntityDefinition(final Element root, final JpaEntity entityDef) {
-        Element classElement = null;
-
-        entityDef.setDefaultCascade(root.getAttribute(Attributes.ATTR_HIBERNATE_MAPPING_DEFAULT_CASCADE));
-
-        // Extract the class element (or subclass if present)
+    private void parseClasses(final Element root, final JpaBase jpaBase, final String defaultCascade) {
         final List<Element> classElements = Utils.getChildrenByTag(root, Tags.TAG_CLASS);
-        if (!classElements.isEmpty()) {
-            classElement = classElements.getFirst();
-        } else {
-            // Handle subclass or joined-subclass if needed
-            List<Element> subclassElements = Utils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
-            if (subclassElements.isEmpty()) {
-                subclassElements = Utils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
-            }
-            if (!subclassElements.isEmpty()) {
-                classElement = subclassElements.getFirst();
-            }
+        for (final Element classElement : classElements) {
+            jpaBase.addEntity(parseEntityDefinition(classElement, defaultCascade));
+            parseClasses(classElement, jpaBase, defaultCascade);
         }
 
-        if (classElement != null) {
-            entityDef.setClassName(classElement.getAttribute(Attributes.ATTR_ENTITY_NAME));
-            entityDef.setTable(classElement.getAttribute(Attributes.ATTR_ENTITY_TABLE));
-            entityDef.setDynamicInsert(classElement.getAttribute(Attributes.ATTR_ENTITY_DYNAMIC_INSERT));
-            entityDef.setDynamicUpdate(classElement.getAttribute(Attributes.ATTR_ENTITY_DYNAMIC_UPDATE));
-            entityDef.setAbstractClass(classElement.getAttribute(Attributes.ATTR_ENTITY_ABSTRACT));
-            entityDef.setMutable(classElement.getAttribute(Attributes.ATTR_ENTITY_MUTABLE));
-
-            // Only for subclasses
-            entityDef.setParentClass(classElement.getAttribute(Attributes.ATTR_ENTITY_EXTENDS));
-            entityDef.setDiscriminatorValue(classElement.getAttribute(Attributes.ATTR_ENTITY_DISCRIMINATOR_VALUE));
-
-            final List<Element> cacheElements = Utils.getChildrenByTag(classElement, Tags.TAG_CACHE);
-            if (!cacheElements.isEmpty()) {
-                final Element cacheElement = cacheElements.getFirst();
-                entityDef.setCacheUsage(cacheElement.getAttribute(Attributes.ATTR_CACHE_USAGE));
-            }
-
-            final List<Element> joinElements = Utils.getChildrenByTag(classElement, Tags.TAG_JOIN);
-            if (!joinElements.isEmpty()) {
-                final Element joinElement = joinElements.getFirst();
-                entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_ENTITY_TABLE));
-                entityDef.setSecondTable(true);
-
-                parseProperty(joinElement, entityDef);
-            }
+        final List<Element> subclassElements = Utils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
+        for (final Element subclassElement : subclassElements) {
+            jpaBase.addEntity(parseEntityDefinition(subclassElement, defaultCascade));
+            parseClasses(subclassElement, jpaBase, defaultCascade);
         }
 
-        // Parse Discriminator Details
-        parseDiscriminator(root, entityDef);
-
-        return classElement;
+        final List<Element> unionSubclassElements = Utils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
+        for (final Element unionSubclassElement : unionSubclassElements) {
+            jpaBase.addEntity(parseEntityDefinition(unionSubclassElement, defaultCascade));
+            parseClasses(unionSubclassElement, jpaBase, defaultCascade);
+        }
     }
 
-    private void parseDiscriminator(final Element root, final JpaEntity entityDef) {
-        final List<Element> discriminatorNodes = Utils.getChildrenByTag(root, Tags.TAG_DISCRIMINATOR);
-        if (!discriminatorNodes.isEmpty()) {
-            final Element discriminatorElement = discriminatorNodes.getFirst();
+    private JpaEntity parseEntityDefinition(final Element classElement, final String defaultCascade) {
+        final JpaEntity entityDef = new JpaEntity();
 
-            // Extract column details if present
-            final List<Element> columnNodes = Utils.getChildrenByTag(discriminatorElement, Tags.TAG_COLUMN);
-            if (!columnNodes.isEmpty()) {
-                final Element columnElement = columnNodes.getFirst();
+        entityDef.setDefaultCascade(defaultCascade);
+        entityDef.setClassName(classElement.getAttribute(Attributes.ATTR_NAME));
+        entityDef.setTable(classElement.getAttribute(Attributes.ATTR_TABLE));
+        entityDef.setDynamicInsert(classElement.getAttribute(Attributes.ATTR_DYNAMIC_INSERT));
+        entityDef.setDynamicUpdate(classElement.getAttribute(Attributes.ATTR_DYNAMIC_UPDATE));
+        entityDef.setAbstractClass(classElement.getAttribute(Attributes.ATTR_ABSTRACT));
+        entityDef.setMutable(classElement.getAttribute(Attributes.ATTR_MUTABLE));
 
-                // Set discriminator column name
-                final String columnName = columnElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_NAME);
-                if (!columnName.isEmpty()) {
-                    entityDef.setDiscriminatorColumn(columnName);
-                }
+        // Only for subclasses
+        entityDef.setParentClass(classElement.getAttribute(Attributes.ATTR_EXTENDS));
+        entityDef.getDiscriminator(true).setValue(classElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_VALUE));
 
-                // Set discriminator column length
-                final String length = columnElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_LENGTH);
-                if (!length.isEmpty()) {
-                    entityDef.setDiscriminatorLength(Integer.parseInt(length));
-                }
+        final Element cacheElement = Utils.getFirstChildByTag(classElement, Tags.TAG_CACHE);
+        if (cacheElement != null) {
+            entityDef.setCacheUsage(cacheElement.getAttribute(Attributes.ATTR_USAGE));
+        }
+
+        final Element joinElement = Utils.getFirstChildByTag(classElement, Tags.TAG_JOIN);
+        if (joinElement != null) {
+            entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
+            entityDef.setSecondTable(true);
+
+            parseProperty(joinElement, entityDef);
+        }
+
+        parseDiscriminator(classElement, entityDef);
+
+        parseIdAndGenerator(classElement, entityDef);
+
+        parseNaturalIds(classElement, entityDef);
+
+        parseVersions(classElement, entityDef);
+
+        parseProperties(classElement, entityDef);
+
+        parseProperty(classElement, entityDef, null, JpaColumn.NaturalId.NONE, true);
+
+        parseRelationships(classElement, entityDef, "");
+
+        parseCollections(classElement, entityDef);
+
+        parseEmbeddedFields(classElement, entityDef);
+
+        return entityDef;
+    }
+
+    private void parseDiscriminator(final Element element, final JpaEntity entityDef) {
+        final Element discriminatorElement = Utils.getFirstChildByTag(element, Tags.TAG_DISCRIMINATOR);
+        if (discriminatorElement != null) {
+            entityDef.getDiscriminator(true).setType(discriminatorElement.getAttribute(Attributes.ATTR_TYPE));
+
+            final Element columnElement = Utils.getFirstChildByTag(discriminatorElement, Tags.TAG_COLUMN);
+            if (columnElement != null) {
+                entityDef.getDiscriminator(true).setColumn(columnElement.getAttribute(Attributes.ATTR_NAME));
+                entityDef.getDiscriminator(true).setLength(columnElement.getAttribute(Attributes.ATTR_LENGTH));
             }
         }
     }
 
     private void parseIdAndGenerator(final Element element, final JpaEntity entityDef) {
-        final List<Element> idElements = Utils.getChildrenByTag(element, Tags.TAG_ID);
-        if (!idElements.isEmpty()) {
-            final Element idElement = idElements.getFirst();
+        final Element idElement = Utils.getFirstChildByTag(element, Tags.TAG_ID);
+        if (idElement != null) {
             final JpaPrimaryKey primaryKey = new JpaPrimaryKey();
 
-            // Set the attribute name and type
-            primaryKey.setName(idElement.getAttribute(Attributes.ATTR_ID_NAME));
-            primaryKey.setType(Utils.mapHibernateTypeToJava(idElement.getAttribute(Attributes.ATTR_ID_TYPE)));
+            primaryKey.setName(idElement.getAttribute(Attributes.ATTR_NAME));
+            primaryKey.setColumnName(idElement.getAttribute(Attributes.ATTR_COLUMN));
+            primaryKey.setType(Utils.mapHibernateTypeToJava(idElement.getAttribute(Attributes.ATTR_TYPE)));
 
-            // Handle the column name
-            final List<Element> columnElements = Utils.getChildrenByTag(idElement, Tags.TAG_COLUMN);
-            if (!columnElements.isEmpty()) {
-                final Element columnElement = columnElements.getFirst();
-                primaryKey.setColumnName(columnElement.getAttribute(Attributes.ATTR_COLUMN_NAME));
+            final Element columnElement = Utils.getFirstChildByTag(idElement, Tags.TAG_COLUMN);
+            if (columnElement != null) {
+                primaryKey.setColumnName(columnElement.getAttribute(Attributes.ATTR_NAME));
             }
 
             // Handle the generator
-            final List<Element> generatorElements = Utils.getChildrenByTag(idElement, Tags.TAG_GENERATOR);
-            if (!generatorElements.isEmpty()) {
-                final Element generatorElement = generatorElements.getFirst();
-                final String generatorClass = generatorElement.getAttribute(Attributes.ATTR_GENERATOR_CLASS);
+            final Element generatorElement = Utils.getFirstChildByTag(idElement, Tags.TAG_GENERATOR);
+            if (generatorElement != null) {
+                final String generatorClass = generatorElement.getAttribute(Attributes.ATTR_CLASS);
                 final Map<String, String> params = new HashMap<>();
 
                 // Collect all params
                 final List<Element> paramElements = Utils.getChildrenByTag(generatorElement, Tags.TAG_PARAM);
                 for (final Element paramElement : paramElements) {
-                    final String paramName = paramElement.getAttribute(Attributes.ATTR_PARAM_NAME);
+                    final String paramName = paramElement.getAttribute(Attributes.ATTR_NAME);
                     final String paramValue = paramElement.getTextContent().trim();
                     params.put(paramName, paramValue);
                 }
@@ -221,6 +205,10 @@ public class HbmParser {
                     case "identity":
                         primaryKey.setGeneratorType("IDENTITY");
                         break;
+                    case "foreign":
+                        primaryKey.setGeneratorType("FOREIGN");
+                        primaryKey.setGeneratorName(params.get("property"));
+                        break;
                     default:
                         // Default to a general generator if not a common type
                         primaryKey.setGeneratorType("GENERATOR");
@@ -237,9 +225,9 @@ public class HbmParser {
     private void parseVersions(final Element element, final JpaEntity entityDef) {
         final List<Element> versionElements = Utils.getChildrenByTag(element, Tags.TAG_VERSION);
         for(final Element versionElement : versionElements) {
-            final List<JpaColumn> jpaColumns = parseColumns(versionElement, true, null,
-                    JpaColumn.NaturalId.NONE);
+            final List<JpaColumn> jpaColumns = parseColumns(versionElement, null);
             for (final JpaColumn jpaColumn : jpaColumns) {
+                jpaColumn.setVersion(true);
                 entityDef.addColumn(jpaColumn);
             }
         }
@@ -248,183 +236,227 @@ public class HbmParser {
     private void parseProperties(final Element element, final JpaEntity entityDef) {
         final List<Element> propertiesElements = Utils.getChildrenByTag(element, Tags.TAG_PROPERTIES);
         for (final Element propertiesElement : propertiesElements) {
-            final String uniqueConstraintName = propertiesElement.getAttribute(Attributes.ATTR_PROPERTIES_NAME);
+            final boolean unique = Boolean.parseBoolean(propertiesElement.getAttribute(Attributes.ATTR_UNIQUE));
+            final String uniqueConstraintName = unique ? propertiesElement.getAttribute(Attributes.ATTR_NAME) : "";
+
             parseProperty(propertiesElement, entityDef, uniqueConstraintName, JpaColumn.NaturalId.NONE, false);
+
+            parseRelationships(propertiesElement, entityDef, uniqueConstraintName);
         }
     }
 
-    private void parseProperty(final Element root, final JpaEntity entityDef) {
-        parseProperty(root, entityDef, null, JpaColumn.NaturalId.NONE, false);
+    private void parseProperty(final Element element, final JpaEntity entityDef) {
+        parseProperty(element, entityDef, null, JpaColumn.NaturalId.NONE, false);
     }
 
     private void parseProperty(final Element element, final JpaEntity entityDef,
             final String uniqueConstraint, final JpaColumn.NaturalId naturalId, final boolean checkComposite) {
         final List<Element> propertyElements = Utils.getChildrenByTag(element, Tags.TAG_PROPERTY);
         for (final Element propertyElement : propertyElements) {
-            final List<JpaColumn> jpaColumns = parseColumns(propertyElement, false, uniqueConstraint,
-                    naturalId);
+            final List<JpaColumn> jpaColumns = parseColumns(propertyElement, uniqueConstraint);
+            if (jpaColumns.isEmpty()) {
+                final JpaColumn jpaColumn = parseProperty(propertyElement, uniqueConstraint);
+                jpaColumns.add(jpaColumn);
+            }
             for (final JpaColumn jpaColumn : jpaColumns) {
                 if (checkComposite && jpaColumns.size() > 1) {
                     jpaColumn.setComposite(true);
                 }
+                jpaColumn.setNaturalId(naturalId);
                 entityDef.addColumn(jpaColumn);
-            }
-
-            final List<Element> types = Utils.getChildrenByTag(propertyElement, Tags.TAG_TYPE);
-            if (!types.isEmpty()) {
-                final Element typeElement = types.getFirst();
-                jpaColumns.getFirst().setType(typeElement.getAttribute(Attributes.ATTR_TYPE_NAME));
-
-                final List<Element> typeParams = Utils.getChildrenByTag(typeElement, Tags.TAG_PARAM);
-                for (final Element typeParamElement : typeParams) {
-                    final String typeName = typeParamElement.getAttribute(Attributes.ATTR_PARAM_NAME);
-                    final String typeValue = typeParamElement.getTextContent().trim();
-                    jpaColumns.getFirst().addTypeParam(typeName, typeValue);
-                }
             }
         }
     }
 
-    private List<JpaColumn> parseColumns(final Element element, final boolean version, final String uniqueConstraint,
-            final JpaColumn.NaturalId naturalId) {
+    private List<JpaColumn> parseColumns(final Element parentElement, final String uniqueConstraint) {
         final List<JpaColumn> jpaColumns = new ArrayList<>();
-        final String propertyName = element.getAttribute(Attributes.ATTR_PROPERTY_NAME);
-        final String propertyType = element.getAttribute(Attributes.ATTR_PROPERTY_TYPE);
-        final String updatable = element.getAttribute(Attributes.ATTR_PROPERTY_UPDATE);
-        final String optimisticLock = element.getAttribute(Attributes.ATTR_PROPERTY_OPTIMISTIC_LOCK);
 
-        final List<Element> columns = Utils.getChildrenByTag(element, Tags.TAG_COLUMN);
+        final List<Element> columns = Utils.getChildrenByTag(parentElement, Tags.TAG_COLUMN);
         for (final Element columnElement : columns) {
-            final JpaColumn jpaColumn = new JpaColumn(propertyType, propertyName);
-            jpaColumn.setVersion(version);
-            jpaColumn.setNaturalId(naturalId);
-            jpaColumn.setUpdatable(StringUtils.isBlank(updatable) || Boolean.parseBoolean(updatable));
-            jpaColumn.setOptimisticLock(StringUtils.isBlank(optimisticLock) || Boolean.parseBoolean(optimisticLock));
+            final JpaColumn jpaColumn = parseProperty(parentElement, uniqueConstraint);
 
-            if (Tags.TAG_MANY_TO_MANY.equals(element.getTagName())) {
+            if (Tags.TAG_MANY_TO_MANY.equals(parentElement.getTagName())) {
                 jpaColumn.setInverseJoin(true);
             }
 
-            jpaColumns.add(parseColumn(columnElement, jpaColumn, uniqueConstraint));
+            parseColumn(columnElement, jpaColumn);
+            jpaColumns.add(jpaColumn);
         }
         return jpaColumns;
     }
 
-    private JpaColumn parseColumn(final Element columnElement, final JpaColumn jpaColumn, String uniqueConstraint) {
-        final String strLen = columnElement.getAttribute(Attributes.ATTR_COLUMN_LENGTH);
-        final Integer length = !strLen.isEmpty() ? Integer.parseInt(strLen) : null;
+    private JpaColumn parseProperty(final Element parentElement, final String uniqueConstraint) {
+        final String update = parentElement.getAttribute(Attributes.ATTR_UPDATE);
+        final String optimisticLock = parentElement.getAttribute(Attributes.ATTR_OPTIMISTIC_LOCK);
 
-        if (StringUtils.isBlank(uniqueConstraint)) {
-            uniqueConstraint = columnElement.getAttribute(Attributes.ATTR_COLUMN_UNIQUE_KEY);
-            if (StringUtils.isBlank(uniqueConstraint)) {
-                uniqueConstraint = null;
+        final JpaColumn jpaColumn = new JpaColumn();
+        jpaColumn.setType(parentElement.getAttribute(Attributes.ATTR_TYPE));
+        jpaColumn.setName(parentElement.getAttribute(Attributes.ATTR_NAME));
+        jpaColumn.setColumnName(parentElement.getAttribute(Attributes.ATTR_COLUMN));
+        jpaColumn.setLength(parentElement.getAttribute(Attributes.ATTR_LENGTH));
+        jpaColumn.setUpdatable(StringUtils.isBlank(update) || Boolean.parseBoolean(update));
+        jpaColumn.setLazy(Boolean.parseBoolean(parentElement.getAttribute(Attributes.ATTR_LAZY)));
+        jpaColumn.setOptimisticLock(StringUtils.isBlank(optimisticLock) || Boolean.parseBoolean(optimisticLock));
+        jpaColumn.setUniqueConstraint(uniqueConstraint);
+
+        final Element typeElement = Utils.getFirstChildByTag(parentElement, Tags.TAG_TYPE);
+        if (typeElement != null) {
+            jpaColumn.setType(typeElement.getAttribute(Attributes.ATTR_NAME));
+
+            final List<Element> typeParams = Utils.getChildrenByTag(typeElement, Tags.TAG_PARAM);
+            for (final Element typeParamElement : typeParams) {
+                final String typeName = typeParamElement.getAttribute(Attributes.ATTR_NAME);
+                final String typeValue = typeParamElement.getTextContent().trim();
+                jpaColumn.addTypeParam(typeName, typeValue);
             }
         }
-
-        jpaColumn.setColumnName(columnElement.getAttribute(Attributes.ATTR_COLUMN_NAME));
-        jpaColumn.setLength(length);
-        jpaColumn.setNullable(!Boolean.parseBoolean(columnElement.getAttribute(Attributes.ATTR_COLUMN_NOT_NULL)));
-        jpaColumn.setIndex(columnElement.getAttribute(Attributes.ATTR_COLUMN_INDEX));
-        jpaColumn.setUnique(Boolean.parseBoolean(columnElement.getAttribute(Attributes.ATTR_COLUMN_UNIQUE)));
-        jpaColumn.setDefaultValue(columnElement.getAttribute(Attributes.ATTR_COLUMN_DEFAULT));
-        jpaColumn.setUniqueConstraint(uniqueConstraint);
-        jpaColumn.setColumnDefinition(columnElement.getAttribute(Attributes.ATTR_COLUMN_SQL_TYPE));
-        jpaColumn.setPrecision(NumberUtils.toInt(columnElement.getAttribute(Attributes.ATTR_COLUMN_PRECISION)));
-        jpaColumn.setScale(NumberUtils.toInt(columnElement.getAttribute(Attributes.ATTR_COLUMN_SCALE)));
         return jpaColumn;
+    }
+
+    private void parseColumn(final Element columnElement, final JpaColumn jpaColumn) {
+        jpaColumn.setColumnName(columnElement.getAttribute(Attributes.ATTR_NAME));
+        jpaColumn.setLength(columnElement.getAttribute(Attributes.ATTR_LENGTH));
+        jpaColumn.setNullable(!Boolean.parseBoolean(columnElement.getAttribute(Attributes.ATTR_NOT_NULL)));
+        jpaColumn.setIndex(columnElement.getAttribute(Attributes.ATTR_INDEX));
+        jpaColumn.setUnique(Boolean.parseBoolean(columnElement.getAttribute(Attributes.ATTR_UNIQUE)));
+        jpaColumn.setDefaultValue(columnElement.getAttribute(Attributes.ATTR_DEFAULT));
+        if (StringUtils.isBlank(jpaColumn.getUniqueConstraint())) {
+            jpaColumn.setUniqueConstraint(columnElement.getAttribute(Attributes.ATTR_UNIQUE_KEY));
+        }
+        jpaColumn.setColumnDefinition(columnElement.getAttribute(Attributes.ATTR_SQL_TYPE));
+        jpaColumn.setPrecision(NumberUtils.toInt(columnElement.getAttribute(Attributes.ATTR_PRECISION)));
+        jpaColumn.setScale(NumberUtils.toInt(columnElement.getAttribute(Attributes.ATTR_SCALE)));
     }
 
     private void parseNaturalIds(final Element element, final JpaEntity entityDef) {
         final List<Element> naturalIdElements = Utils.getChildrenByTag(element, Tags.TAG_NATURAL_ID);
-        for (final Element naturalId : naturalIdElements) {
-            final String mutable = naturalId.getAttribute(Attributes.ATTR_NATURAL_ID_MUTABLE);
-            parseProperty(naturalId, entityDef, null,
-                    "true".equals(mutable) ? JpaColumn.NaturalId.MUTABLE : JpaColumn.NaturalId.IMMUTABLE, false);
-            parseRelationships(naturalId, entityDef);
+        for (final Element naturalIdElement : naturalIdElements) {
+            final String mutable = naturalIdElement.getAttribute(Attributes.ATTR_MUTABLE);
+            final JpaColumn.NaturalId naturalId = "true".equals(mutable) ?
+                    JpaColumn.NaturalId.MUTABLE : JpaColumn.NaturalId.IMMUTABLE;
+            parseProperty(naturalIdElement, entityDef, null, naturalId, false);
+            parseRelationships(naturalIdElement, entityDef, null);
         }
     }
 
-    private void parseRelationships(final Element element, final JpaEntity entityDef) {
-        parseRelationships(null, element, entityDef);
+    private void parseRelationships(final Element element, final JpaEntity entityDef, final String uniqueConstraintName) {
+        parseRelationships(null, element, entityDef, uniqueConstraintName);
     }
 
     private void parseRelationships(final JpaRelationship collectionRelationship, final Element element,
-            final JpaEntity entityDef) {
+            final JpaEntity entityDef, final String uniqueConstraintName) {
         final List<Element> manyToOneElements = Utils.getChildrenByTag(element, Tags.TAG_MANY_TO_ONE);
-        for (final Element itemElement : manyToOneElements) {
+        for (final Element relationshipElement : manyToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
             relationship.setType("ManyToOne");
-            parseRelationship(relationship, itemElement, entityDef);
+            relationship.setFetch("eager");
+            parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
         final List<Element> oneToOneElements = Utils.getChildrenByTag(element, Tags.TAG_ONE_TO_ONE);
-        for (final Element itemElement : oneToOneElements) {
+        for (final Element relationshipElement : oneToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
             relationship.setType("OneToOne");
-            parseRelationship(relationship, itemElement, entityDef);
+            relationship.setFetch("eager");
+            parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
+
+            if (entityDef.getPrimaryKey() != null && "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType())) {
+                final JpaColumn keyColumn = new JpaColumn();
+                keyColumn.setName(relationship.getName());
+                keyColumn.setColumnName(entityDef.getPrimaryKey().getColumnName());
+                relationship.addReferencedColumn(keyColumn);
+            }
         }
 
         final List<Element> oneToManyElements = Utils.getChildrenByTag(element, Tags.TAG_ONE_TO_MANY);
-        for (final Element itemElement : oneToManyElements) {
+        for (final Element relationshipElement : oneToManyElements) {
             collectionRelationship.setType("OneToMany");
-            parseRelationship(collectionRelationship, itemElement, entityDef);
+            parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
         final List<Element> manyToManyElements = Utils.getChildrenByTag(element, Tags.TAG_MANY_TO_MANY);
-        for (final Element itemElement : manyToManyElements) {
+        for (final Element relationshipElement : manyToManyElements) {
             collectionRelationship.setType("ManyToMany");
-            parseRelationship(collectionRelationship, itemElement, entityDef);
+            parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
     }
 
-    private void parseRelationship(final JpaRelationship relationship, final Element itemElement,
-            final JpaEntity entityDef) {
-        final String name = itemElement.getAttribute(Attributes.ATTR_RELATIONSHIP_NAME);
-        final String targetEntity = itemElement.getAttribute(Attributes.ATTR_RELATIONSHIP_CLASS);
-        final String fetch = "false".equals(itemElement.getAttribute(Attributes.ATTR_RELATIONSHIP_LAZY)) ? "eager" : "lazy";
-        final String cascade = itemElement.getAttribute(Attributes.ATTR_RELATIONSHIP_CASCADE);
-        final String access = itemElement.getAttribute(Attributes.ATTR_RELATIONSHIP_ACCESS);
-        final String index = itemElement.getAttribute(Attributes.ATTR_RELATIONSHIP_INDEX);
+    private void parseRelationship(final JpaRelationship relationship, final Element relationshipElement,
+            final JpaEntity entityDef, final String uniqueConstraintName) {
+        final String name = relationshipElement.getAttribute(Attributes.ATTR_NAME);
+        final String targetEntity = relationshipElement.getAttribute(Attributes.ATTR_CLASS);
+        final String cascade = relationshipElement.getAttribute(Attributes.ATTR_CASCADE);
+        final String access = relationshipElement.getAttribute(Attributes.ATTR_ACCESS);
+        final String index = relationshipElement.getAttribute(Attributes.ATTR_INDEX);
+        final String update = relationshipElement.getAttribute(Attributes.ATTR_UPDATE);
+        final String notNull = relationshipElement.getAttribute(Attributes.ATTR_NOT_NULL);
+        final String foreignKey = relationshipElement.getAttribute(Attributes.ATTR_FOREIGN_KEY);
+        final boolean unique = Boolean.parseBoolean(relationshipElement.getAttribute(Attributes.ATTR_UNIQUE));
+        final boolean optional = !Boolean.parseBoolean(relationshipElement.getAttribute(Attributes.ATTR_CONSTRAINED));
+        final String mappedBy = relationshipElement.getAttribute(Attributes.ATTR_PROPERTY_REF);
 
         if (StringUtils.isBlank(relationship.getName())) {
             relationship.setName(name);
         }
         relationship.setTargetEntity(targetEntity);
-        relationship.setFetch(fetch);
+
+        if (StringUtils.isNotBlank(relationshipElement.getAttribute(Attributes.ATTR_LAZY))) {
+            relationship.setFetch("false".equals(relationshipElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
+        }
         relationship.setCascade(cascade, entityDef.getDefaultCascade());
         relationship.setAccess(access);
+        relationship.setOptional(optional);
+        relationship.setMappedBy(mappedBy);
 
-        final List<JpaColumn> jpaColumns = parseColumns(itemElement, false, null,
-                JpaColumn.NaturalId.NONE);
+        final List<JpaColumn> jpaColumns = parseColumns(relationshipElement, null);
         if (!jpaColumns.isEmpty()) {
-            if (StringUtils.isNotBlank(index)) {
-                for (final JpaColumn jpaColumn : jpaColumns) {
-                    jpaColumn.setIndex(index);
+            for (final JpaColumn jpaColumn : jpaColumns) {
+                if (StringUtils.isNotBlank(update)) {
+                    jpaColumn.setUpdatable(StringUtils.isBlank(update) || Boolean.parseBoolean(update));
                 }
+                if (StringUtils.isNotBlank(notNull)) {
+                    jpaColumn.setNullable(!Boolean.parseBoolean(notNull));
+                }
+                jpaColumn.setForeignKey(foreignKey);
+                jpaColumn.setIndex(index);
+                if (!jpaColumn.isUnique()) {
+                    jpaColumn.setUnique(unique);
+                }
+                jpaColumn.setUniqueConstraint(uniqueConstraintName);
             }
+
             relationship.setReferencedColumns(jpaColumns);
+        } else {
+            final String columnName = relationshipElement.getAttribute(Attributes.ATTR_COLUMN);
+            if (StringUtils.isNotBlank(columnName)) {
+                final JpaColumn keyColumn = new JpaColumn();
+                keyColumn.setName(relationship.getName());
+                keyColumn.setColumnName(columnName);
+                keyColumn.setInverseJoin(true);
+                relationship.addReferencedColumn(keyColumn);
+            }
         }
 
         entityDef.addRelationship(relationship);
     }
 
-    private void parseCollections(final Element root, final JpaEntity entityDef) {
-        List<Element> collectionElements = Utils.getChildrenByTag(root, Tags.TAG_SET);
+    private void parseCollections(final Element element, final JpaEntity entityDef) {
+        List<Element> collectionElements = Utils.getChildrenByTag(element, Tags.TAG_SET);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_SET);
         }
 
-        collectionElements = Utils.getChildrenByTag(root, Tags.TAG_LIST);
+        collectionElements = Utils.getChildrenByTag(element, Tags.TAG_LIST);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_LIST);
         }
 
-        collectionElements = Utils.getChildrenByTag(root, Tags.TAG_BAG);
+        collectionElements = Utils.getChildrenByTag(element, Tags.TAG_BAG);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_BAG);
         }
 
-        collectionElements = Utils.getChildrenByTag(root, Tags.TAG_MAP);
+        collectionElements = Utils.getChildrenByTag(element, Tags.TAG_MAP);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_MAP);
         }
@@ -432,113 +464,108 @@ public class HbmParser {
 
     private void parseCollection(final Element collectionElement, final JpaEntity entityDef, final String collectionType) {
         final JpaRelationship relationship = new JpaRelationship();
-        relationship.setName(collectionElement.getAttribute(Attributes.ATTR_RELATIONSHIP_NAME));
-        relationship.setTable(collectionElement.getAttribute(Attributes.ATTR_RELATIONSHIP_TABLE));
+        relationship.setName(collectionElement.getAttribute(Attributes.ATTR_NAME));
+        relationship.setTable(collectionElement.getAttribute(Attributes.ATTR_TABLE));
 
         // Find the <one-to-many> or <many-to-many> within the collection
-        parseRelationships(relationship, collectionElement, entityDef);
+        parseRelationships(relationship, collectionElement, entityDef, null);
 
-        relationship.setInverse(Boolean.parseBoolean(collectionElement.getAttribute(Attributes.ATTR_RELATIONSHIP_INVERSE)));
-        relationship.setFetch("false".equals(collectionElement.getAttribute(Attributes.ATTR_RELATIONSHIP_LAZY)) ? "eager" : "lazy");
-        relationship.setCascade(collectionElement.getAttribute(Attributes.ATTR_RELATIONSHIP_CASCADE), entityDef.getDefaultCascade());
+        relationship.setInverse(Boolean.parseBoolean(collectionElement.getAttribute(Attributes.ATTR_INVERSE)));
+        relationship.setCascade(collectionElement.getAttribute(Attributes.ATTR_CASCADE), entityDef.getDefaultCascade());
         relationship.setCollectionType(collectionType);
 
-        final List<Element> keyElements = Utils.getChildrenByTag(collectionElement, Tags.TAG_KEY);
-        if (!keyElements.isEmpty()) {
-            final Element keyElement = keyElements.getFirst();
+        if (StringUtils.isNotBlank(collectionElement.getAttribute(Attributes.ATTR_LAZY))) {
+            relationship.setFetch("false".equals(collectionElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
+        }
+
+        final Element keyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_KEY);
+        if (keyElement != null) {
             final JpaColumn keyColumn;
 
-            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_KEY_COLUMN))) {
+            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_COLUMN))) {
                 keyColumn = new JpaColumn();
                 keyColumn.setName(relationship.getName());
-                keyColumn.setColumnName(keyElement.getAttribute(Attributes.ATTR_KEY_COLUMN));
+                keyColumn.setColumnName(keyElement.getAttribute(Attributes.ATTR_COLUMN));
             } else {
-                final List<JpaColumn> jpaColumns = parseColumns(keyElement, false, null,
-                        JpaColumn.NaturalId.NONE);
+                final List<JpaColumn> jpaColumns = parseColumns(keyElement, null);
                 keyColumn = jpaColumns.getFirst();
             }
-            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_KEY_FOREIGN_KEY))) {
-                keyColumn.setForeignKey(keyElement.getAttribute(Attributes.ATTR_KEY_FOREIGN_KEY));
+            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY))) {
+                keyColumn.setForeignKey(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY));
             }
             relationship.addReferencedColumn(keyColumn);
         }
 
-        final List<Element> mapKeyElements = Utils.getChildrenByTag(collectionElement, Tags.TAG_MAP_KEY);
-        if (!mapKeyElements.isEmpty()) {
-            final Element mapKeyElement = mapKeyElements.getFirst();
+        final Element mapKeyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_MAP_KEY);
+        if (mapKeyElement != null) {
             final JpaColumn keyColumn = relationship.getReferencedColumns().getFirst();
-            keyColumn.setType(Utils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_MAP_KEY_TYPE)));
-            keyColumn.setName(mapKeyElement.getAttribute(Attributes.ATTR_MAP_KEY_COLUMN));
+            keyColumn.setType(Utils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_TYPE)));
+            keyColumn.setName(mapKeyElement.getAttribute(Attributes.ATTR_COLUMN));
         }
 
-        final List<Element> compositeKeyElements = Utils.getChildrenByTag(collectionElement, Tags.TAG_COMPOSITE_MAP_KEY);
-        if (!compositeKeyElements.isEmpty()) {
-            final Element keyElement = compositeKeyElements.getFirst();
-
-            final List<Element> keyProperties = Utils.getChildrenByTag(keyElement, Tags.TAG_KEY_PROPERTY);
+        final Element compositeMapkeyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_COMPOSITE_MAP_KEY);
+        if (compositeMapkeyElement != null) {
+            final List<Element> keyProperties = Utils.getChildrenByTag(compositeMapkeyElement, Tags.TAG_KEY_PROPERTY);
             for (final Element keyProperty : keyProperties) {
                 final JpaColumn keyColumn = new JpaColumn();
-                keyColumn.setType(keyElement.getAttribute(Attributes.ATTR_COMPOSITE_MAP_KEY_CLASS));
-                keyColumn.setName(keyProperty.getAttribute(Attributes.ATTR_KEY_PROPERTY_NAME));
-                keyColumn.setColumnName(keyProperty.getAttribute(Attributes.ATTR_KEY_PROPERTY_COLUMN));
+                keyColumn.setType(compositeMapkeyElement.getAttribute(Attributes.ATTR_CLASS));
+                if (StringUtils.isBlank(keyColumn.getType())) {
+                    keyColumn.setType(keyProperty.getAttribute(Attributes.ATTR_TYPE));
+                }
+                keyColumn.setName(keyProperty.getAttribute(Attributes.ATTR_NAME));
+                keyColumn.setColumnName(keyProperty.getAttribute(Attributes.ATTR_COLUMN));
                 relationship.addReferencedColumn(keyColumn);
             }
         }
 
-        relationship.setOrderColumn(collectionElement.getAttribute(Attributes.ATTR_RELATIONSHIP_ORDER_BY));
+        relationship.setOrderColumn(collectionElement.getAttribute(Attributes.ATTR_ORDER_BY));
 
-        final List<Element> indexElements = Utils.getChildrenByTag(collectionElement, Tags.TAG_LIST_INDEX);
-        if (!indexElements.isEmpty()) {
-            final Element indexElement = indexElements.getFirst();
-            relationship.setOrderColumn(indexElement.getAttribute(Attributes.ATTR_LIST_INDEX_COLUMN));
+        final Element indexElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_LIST_INDEX);
+        if (indexElement != null) {
+            relationship.setOrderColumn(indexElement.getAttribute(Attributes.ATTR_COLUMN));
         }
     }
 
-    private void parseEmbeddedFields(final Element root, final JpaEntity entityDef) {
-        final List<Element> components = Utils.getChildrenByTag(root, Tags.TAG_COMPONENT);
-        for (final Element component : components) {
+    private void parseEmbeddedFields(final Element element, final JpaEntity entityDef) {
+        final List<Element> componentElements = Utils.getChildrenByTag(element, Tags.TAG_COMPONENT);
+        for (final Element componentElement : componentElements) {
             final JpaEntity embeddedField = new JpaEntity();
-            embeddedField.setParentClass(component.getAttribute(Attributes.ATTR_COMPONENT_NAME));
-            embeddedField.setClassName(component.getAttribute(Attributes.ATTR_COMPONENT_CLASS));
+            embeddedField.setParentClass(componentElement.getAttribute(Attributes.ATTR_NAME));
+            embeddedField.setClassName(componentElement.getAttribute(Attributes.ATTR_CLASS));
             embeddedField.setEmbeddable(true);
-            parseProperty(component, embeddedField);
+            parseProperty(componentElement, embeddedField);
 
             entityDef.addEmbeddedField(embeddedField);
         }
     }
 
-    private void parseQueries(final Element root, final JpaEntity entityDef) {
+    private void parseQueries(final Element root, final JpaEntity jpaEntity) {
         final List<Element> queries = Utils.getChildrenByTag(root, Tags.TAG_QUERY);
-        for (final Element sqlQuery : queries) {
+        for (final Element query : queries) {
             final JpaNamedQuery namedQuery = new JpaNamedQuery();
-            namedQuery.setName(sqlQuery.getAttribute(Attributes.ATTR_QUERY_NAME));
-            namedQuery.setQuery(sqlQuery.getTextContent().trim());
-            entityDef.addNamedQuery(namedQuery);
+            namedQuery.setName(query.getAttribute(Attributes.ATTR_NAME));
+            namedQuery.setQuery(query.getTextContent().trim());
+            jpaEntity.addNamedQuery(namedQuery);
         }
 
         final List<Element> sqlQueries = Utils.getChildrenByTag(root, Tags.TAG_SQL_QUERY);
         for (final Element sqlQuery : sqlQueries) {
             final JpaNamedQuery namedQuery = new JpaNamedQuery();
-            namedQuery.setName(sqlQuery.getAttribute(Attributes.ATTR_SQL_QUERY_NAME));
+            namedQuery.setName(sqlQuery.getAttribute(Attributes.ATTR_NAME));
             namedQuery.setQuery(sqlQuery.getTextContent().trim());
             namedQuery.setNativeQuery(true);
             parseQueryReturnColumns(sqlQuery, namedQuery);
-            entityDef.addNamedQuery(namedQuery);
+            jpaEntity.addNamedQuery(namedQuery);
         }
     }
 
     private void parseQueryReturnColumns(final Element element, final JpaNamedQuery namedQuery) {
-        final NodeList childNodes = element.getChildNodes();
-        for (int i = 0; i < childNodes.getLength(); i++) {
-            final Node node = childNodes.item(i);
-            if (node.getNodeType() == Node.ELEMENT_NODE && Tags.TAG_RETURN_SCALAR.equals(node.getNodeName())) {
-                final Element propertyElement = (Element) node;
-                final String columnName = propertyElement.getAttribute(Attributes.ATTR_RETURN_SCALAR_COLUMN);
-                final String columnType = propertyElement.getAttribute(Attributes.ATTR_RETURN_SCALAR_TYPE);
-
-                final JpaColumn returnColumn = new JpaColumn(columnType, columnName);
-                namedQuery.addReturnColumn(returnColumn);
-            }
+        final List<Element> returnScalarElements = Utils.getChildrenByTag(element, Tags.TAG_RETURN_SCALAR);
+        for (final Element returnScalarElement : returnScalarElements) {
+            final JpaColumn returnColumn = new JpaColumn();
+            returnColumn.setColumnName(returnScalarElement.getAttribute(Attributes.ATTR_COLUMN));
+            returnColumn.setType(returnScalarElement.getAttribute(Attributes.ATTR_TYPE));
+            namedQuery.addReturnColumn(returnColumn);
         }
     }
 
@@ -564,35 +591,23 @@ public class HbmParser {
         }
     }
 
-    private void verifyUtilitiesFile(final String absoluteFilename, final JpaEntity entityDef) {
-        if (StringUtils.isBlank(entityDef.getClassName())) {
-            final String fileName = Utils.getFileNameNoExtensions(absoluteFilename);
-            entityDef.setClassName(fileName);
-        }
-    }
-
     private void validateMissingImplementations(final Element parent) {
-        final NodeList children = parent.getChildNodes();
-
         if (!Tags.TAGS.contains(parent.getTagName())) {
             LOG.error("ATTENTION: No implementation for tag " + parent.getTagName());
         }
 
-        for (int i = 0; i < children.getLength(); i++) {
-            final Node child = children.item(i);
-
-            // Only process element nodes
-            if (child.getNodeType() == Node.ELEMENT_NODE) {
-                for (int j = 0; j < parent.getAttributes().getLength(); j++) {
-                    final Node attrElement = parent.getAttributes().item(j);
-                    if (!Attributes.ATTRIBUTES.contains(attrElement.getNodeName())) {
-                        LOG.error("ATTENTION: No implementation for attribute " + attrElement.getNodeName() +
-                                " of tag " + parent.getTagName());
-                    }
-                }
-
-                validateMissingImplementations((Element) child);
+        for (int j = 0; j < parent.getAttributes().getLength(); j++) {
+            final Node attrElement = parent.getAttributes().item(j);
+            if (Attributes.ATTRIBUTES.get(parent.getTagName()) == null ||
+                    !Attributes.ATTRIBUTES.get(parent.getTagName()).contains(attrElement.getNodeName())) {
+                LOG.error("ATTENTION: No implementation for attribute " + attrElement.getNodeName() +
+                        " of tag " + parent.getTagName());
             }
+        }
+
+        final List<Element> children = Utils.getChildrenByTag(parent, null);
+        for (final Element child : children) {
+            validateMissingImplementations(child);
         }
     }
 

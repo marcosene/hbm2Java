@@ -10,6 +10,7 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 
 import com.devtools.Utils;
+import com.devtools.definition.JpaBase;
 import com.devtools.definition.JpaColumn;
 import com.devtools.definition.JpaEntity;
 import com.devtools.definition.JpaNamedQuery;
@@ -18,10 +19,16 @@ import com.devtools.definition.Tags;
 
 public class EntityGenerator {
 
-    public void generate(final JpaEntity entityDef, final String outputFolder) throws IOException {
+    public void generate(final JpaBase jpaBase, final String outputFolder) throws IOException {
+        for (final JpaEntity entityDef : jpaBase.getEntities()) {
+            generateEntity(outputFolder, entityDef);
+        }
+    }
+
+    private void generateEntity(final String outputFolder, final JpaEntity entityDef) throws IOException {
         final StringBuilder entityCode = new StringBuilder();
 
-        // Add package declaration
+        // Add package declaration and imports
         generateHeaders(entityDef, entityCode);
 
         generateQueries(entityDef, entityCode);
@@ -46,6 +53,7 @@ public class EntityGenerator {
         // Handle Embedded fields and Embeddable classes
         generateEmbedded(entityDef, entityCode, outputFolder);
 
+        // Handle default values
         generatePrePersist(entityDef, entityCode);
 
         // Close the class definition
@@ -91,7 +99,7 @@ public class EntityGenerator {
             entityCode.append(entityDef.getTable()).append("\"");
 
             if (!indexes.isEmpty()) {
-                entityCode.append(", indexes = {\n").append(indexes).append("}");
+                entityCode.append(",\n    indexes = {\n").append(indexes).append("\n    }");
             }
             if (!uniqueConstraints.isEmpty()) {
                 entityCode.append(",\n    uniqueConstraints = {\n");
@@ -110,7 +118,7 @@ public class EntityGenerator {
             entityCode.append(entityDef.getTable()).append("\", optional = false)\n");
         }
 
-        if (entityDef.getCacheUsage() != null) {
+        if (StringUtils.isNotBlank(entityDef.getCacheUsage())) {
             entityCode.append("@Cacheable\n");
             switch (entityDef.getCacheUsage()) {
                 case "read-only":
@@ -142,8 +150,8 @@ public class EntityGenerator {
             entityCode.append("@org.hibernate.annotations.DynamicUpdate\n");
         }
 
-        if (StringUtils.isNotBlank(entityDef.getDiscriminatorValue())) {
-            entityCode.append("@DiscriminatorValue(\"").append(entityDef.getDiscriminatorValue()).append("\")\n");
+        if (entityDef.getDiscriminator() != null && StringUtils.isNotBlank(entityDef.getDiscriminator().getValue())) {
+            entityCode.append("@DiscriminatorValue(\"").append(entityDef.getDiscriminator().getValue()).append("\")\n");
         }
 
         if (StringUtils.isNotBlank(entityDef.getParentClass())) {
@@ -161,10 +169,16 @@ public class EntityGenerator {
             }
         } else {
             // Handle Discriminator Column
-            if (StringUtils.isNotBlank(entityDef.getDiscriminatorColumn())) {
-                entityCode.append("@DiscriminatorColumn(name = \"").append(entityDef.getDiscriminatorColumn())
-                        .append("\", length = ").append(entityDef.getDiscriminatorLength())
-                        .append(")\n");
+            if (entityDef.getDiscriminator() != null && entityDef.getDiscriminator().getColumn() != null) {
+                entityCode.append("@DiscriminatorColumn(name = \"").append(entityDef.getDiscriminator().getColumn()).append("\"");
+                if (entityDef.getDiscriminator().getType() != null &&
+                        !"string".equals(entityDef.getDiscriminator().getType())) {
+                    entityCode.append(", type = ").append(Utils.getDiscriminatorType(entityDef.getDiscriminator().getType()));
+                }
+                if (entityDef.getDiscriminator().getLength() != 31) {
+                    entityCode.append(", length = ").append(entityDef.getDiscriminator().getLength());
+                }
+                entityCode.append(")\n");
                 entityCode.append("@Inheritance(strategy = InheritanceType.SINGLE_TABLE)\n");
             }
 
@@ -214,7 +228,7 @@ public class EntityGenerator {
 
         final StringBuilder indexes = new StringBuilder();
         for(final Map.Entry<String, List<String>> entry : indexesMap.entrySet()) {
-            indexes.append("    @Index(name = \"").append(entry.getKey()).append("\", columnList = \"")
+            indexes.append("        @Index(name = \"").append(entry.getKey()).append("\", columnList = \"")
                     .append(String.join(",", entry.getValue())).append("\"),\n");
         }
         return indexes;
@@ -285,6 +299,8 @@ public class EntityGenerator {
             case "TABLE":
                 entityCode.append("    @GeneratedValue(strategy = GenerationType.TABLE)\n");
                 break;
+            case "FOREIGN":
+                break; // it will be defined in the OneToOne
             case "GENERATOR":
                 if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
                     entityCode.append("    @GeneratedValue(generator = \"")
@@ -328,6 +344,9 @@ public class EntityGenerator {
                     entityCode.append("        }\n    ");
                 }
                 entityCode.append(")\n");
+            }
+            if (col.isLazy()) {
+                entityCode.append("    @Basic(fetch = FetchType.LAZY)\n");
             }
             entityCode.append("    ");
             generateColumn(entityDef, entityCode, col);
@@ -420,9 +439,12 @@ public class EntityGenerator {
 
             // Cascade Types
             final String cascadeTypes = Utils.convertCascadeTypes(relationship.getCascade());
-            String cascadeAnnotation = "";
+            final StringBuilder cascadeAnnotation = new StringBuilder();
             if (!cascadeTypes.isEmpty()) {
-                cascadeAnnotation = "cascade = {" + cascadeTypes + "}";
+                cascadeAnnotation.append("cascade = {").append(cascadeTypes).append("}");
+                if (relationship.getCascade().contains("delete-orphan")) {
+                    cascadeAnnotation.append(", orphanRemoval = true");
+                }
             }
 
             String joinColumn = "";
@@ -431,6 +453,7 @@ public class EntityGenerator {
                 joinColumn = "@JoinColumn(name = \"" + referencedColumn.getColumnName() + "\"" +
                         (!referencedColumn.isUpdatable() ? ", updatable = false" : "") +
                         (!referencedColumn.isNullable() ? ", nullable = false" : "") +
+                        (referencedColumn.isUnique() ? ", unique = true" : "") +
                         (StringUtils.isNotBlank(referencedColumn.getForeignKey()) ?
                                 ", foreignKey = @ForeignKey(name = \"" +
                                         referencedColumn.getForeignKey() + "\")" : "") +
@@ -450,6 +473,7 @@ public class EntityGenerator {
                         annotations.append("    ").append(joinColumn);
                     }
                     break;
+
                 case "OneToMany":
                     if (relationship.isInverse()) {
                         annotations.append("    // TODO check correct name for 'mappedBy' in the class ");
@@ -462,7 +486,11 @@ public class EntityGenerator {
                     }
                     annotations.append(cascadeAnnotation);
                     if (relationship.isInverse()) {
-                        annotations.append(", mappedBy = \"").append(Utils.lowercaseUntilLastUpper(entityDef.getClassName())).append("\"");
+                        String mappedBy = relationship.getMappedBy();
+                        if (StringUtils.isBlank(mappedBy)) {
+                            mappedBy = Utils.lowercaseUntilLastUpper(entityDef.getClassName());
+                        }
+                        annotations.append(", mappedBy = \"").append(mappedBy).append("\"");
                     }
                     annotations.append(")\n");
                     if (!joinColumn.isEmpty()) {
@@ -472,47 +500,72 @@ public class EntityGenerator {
                         annotations.append("    @OrderBy(\"").append(relationship.getOrderColumn()).append("\")\n");
                     }
                     break;
+
                 case "OneToOne":
-                    annotations.append("    @OneToOne(fetch = FetchType.").append(fetchType).append(", ");
+                    if (entityDef.getPrimaryKey() != null &&
+                            "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType()) &&
+                            relationship.getName().equals(entityDef.getPrimaryKey().getGeneratorName())) {
+                        annotations.append("    @MapsId\n");
+                    }
+                    annotations.append("    @OneToOne(");
+                    if ("LAZY".equals(fetchType)) {
+                        annotations.append("fetch = FetchType.").append(fetchType).append(", ");
+                    }
+                    if (!relationship.isOptional()) {
+                        annotations.append("optional = false, ");
+                    }
+                    if (StringUtils.isNotBlank(relationship.getMappedBy())) {
+                        annotations.append("mappedBy = \"").append(relationship.getMappedBy()).append("\", ");
+                    }
                     annotations.append(cascadeAnnotation).append(")\n");
                     if (!joinColumn.isEmpty()) {
                         annotations.append("    ").append(joinColumn);
                     }
                     break;
+
                 case "ManyToMany":
                     annotations.append("    @ManyToMany(fetch = FetchType.").append(fetchType);
                     annotations.append(StringUtils.isNotBlank(cascadeAnnotation) ? ", " + cascadeAnnotation : "").append(")\n");
                     if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
                         annotations.append("    @JoinTable(\n");
                         annotations.append("        name = \"").append(relationship.getTable()).append("\",\n");
-                        annotations.append("        joinColumns = {\n");
-                        for (final JpaColumn column : relationship.getReferencedColumns()) {
-                            if (!column.isInverseJoin()) {
-                                annotations.append("            @JoinColumn(name = \"").append(column.getColumnName())
-                                        .append("\"");
-                                annotations.append(!column.isUpdatable() ? ", updatable = false" : "")
-                                        .append(!column.isNullable() ? ", nullable = false" : "")
-                                        .append(StringUtils.isNotBlank(column.getForeignKey()) ?
-                                                ", foreignKey = @ForeignKey(name = \"" + column.getForeignKey()
-                                                        + "\")" : "");
-                                annotations.append(")\n");
+
+                        if (relationship.getReferencedColumns().stream().anyMatch(jpaColumn -> !jpaColumn.isInverseJoin())) {
+                            annotations.append("        joinColumns = {\n");
+                            for (final JpaColumn column : relationship.getReferencedColumns()) {
+                                if (!column.isInverseJoin()) {
+                                    annotations.append("            @JoinColumn(name = \"").append(
+                                                    column.getColumnName())
+                                            .append("\"");
+                                    annotations.append(!column.isUpdatable() ? ", updatable = false" : "")
+                                            .append(!column.isNullable() ? ", nullable = false" : "")
+                                            .append(StringUtils.isNotBlank(column.getForeignKey()) ?
+                                                    ", foreignKey = @ForeignKey(name = \"" + column.getForeignKey()
+                                                            + "\")" : "");
+                                    annotations.append(")\n");
+                                }
                             }
+                            annotations.append("        },\n");
                         }
-                        annotations.append("        },\n");
-                        annotations.append("        inverseJoinColumns = {\n");
-                        for (final JpaColumn column : relationship.getReferencedColumns()) {
-                            if (column.isInverseJoin()) {
-                                annotations.append("            @JoinColumn(name = \"").append(column.getColumnName())
-                                        .append("\"");
-                                annotations.append(!column.isUpdatable() ? ", updatable = false" : "")
-                                        .append(!column.isNullable() ? ", nullable = false" : "")
-                                        .append(StringUtils.isNotBlank(column.getForeignKey()) ?
-                                                ", foreignKey = @ForeignKey(name = \"" + column.getForeignKey()
-                                                        + "\")" : "");
-                                annotations.append(")\n");
+
+                        if (relationship.getReferencedColumns().stream().anyMatch(JpaColumn::isInverseJoin)) {
+                            annotations.append("        inverseJoinColumns = {\n");
+                            for (final JpaColumn column : relationship.getReferencedColumns()) {
+                                if (column.isInverseJoin()) {
+                                    annotations.append("            @JoinColumn(name = \"").append(
+                                                    column.getColumnName())
+                                            .append("\"");
+                                    annotations.append(!column.isUpdatable() ? ", updatable = false" : "")
+                                            .append(!column.isNullable() ? ", nullable = false" : "")
+                                            .append(StringUtils.isNotBlank(column.getForeignKey()) ?
+                                                    ", foreignKey = @ForeignKey(name = \"" + column.getForeignKey()
+                                                            + "\")" : "");
+                                    annotations.append(")\n");
+                                }
                             }
+                            annotations.append("        }\n");
                         }
-                        annotations.append("        }\n    )\n");
+                        annotations.append("    )\n");
                     }
                     break;
             }
@@ -566,7 +619,7 @@ public class EntityGenerator {
             entityCode.append("    private ").append(embeddedField.getClassName())
                     .append(" ").append(embeddedField.getParentClass()).append(";\n\n");
 
-            generate(embeddedField, outputFolder);
+            generateEntity(outputFolder, embeddedField);
         }
     }
 
@@ -599,10 +652,10 @@ public class EntityGenerator {
         }
     }
 
-    private void generateQueries(final JpaEntity entityDef, final StringBuilder entityCode) {
-        if (!entityDef.getNamedQueries().stream().filter(jpaNamedQuery -> !jpaNamedQuery.isNativeQuery()).toList().isEmpty()) {
+    private void generateQueries(final JpaEntity jpaEntity, final StringBuilder entityCode) {
+        if (!jpaEntity.getNamedQueries().stream().filter(jpaNamedQuery -> !jpaNamedQuery.isNativeQuery()).toList().isEmpty()) {
             entityCode.append("\n@NamedQueries({\n");
-            for (final JpaNamedQuery namedQuery : entityDef.getNamedQueries()) {
+            for (final JpaNamedQuery namedQuery : jpaEntity.getNamedQueries()) {
                 if (!namedQuery.isNativeQuery()) {
                     entityCode.append("    @NamedQuery(name = \"").append(namedQuery.getName()).append("\",\n");
                     entityCode.append("        query = \"\"\"").append(namedQuery.getQuery().trim()).append(
@@ -613,10 +666,10 @@ public class EntityGenerator {
         }
     }
 
-    private void generateNativeQueries(final JpaEntity entityDef, final StringBuilder entityCode) {
-        if (!entityDef.getNamedQueries().stream().filter(JpaNamedQuery::isNativeQuery).toList().isEmpty()) {
+    private void generateNativeQueries(final JpaEntity jpaEntity, final StringBuilder entityCode) {
+        if (!jpaEntity.getNamedQueries().stream().filter(JpaNamedQuery::isNativeQuery).toList().isEmpty()) {
             entityCode.append("\n@NamedNativeQueries({\n");
-            for (final JpaNamedQuery namedQuery : entityDef.getNamedQueries()) {
+            for (final JpaNamedQuery namedQuery : jpaEntity.getNamedQueries()) {
                 if (namedQuery.isNativeQuery()) {
                     entityCode.append("    @NamedNativeQuery(name = \"").append(namedQuery.getName()).append("\",\n");
                     entityCode.append("        query = \"\"\"").append(namedQuery.getQuery().trim()).append(
@@ -626,9 +679,9 @@ public class EntityGenerator {
             }
             entityCode.append("})\n");
 
-            if (!entityDef.getNamedQueries().stream().filter(JpaNamedQuery::isNativeQuery).toList().isEmpty()) {
+            if (!jpaEntity.getNamedQueries().stream().filter(JpaNamedQuery::isNativeQuery).toList().isEmpty()) {
                 entityCode.append("@SqlResultSetMappings({\n");
-                for (final JpaNamedQuery namedQuery : entityDef.getNamedQueries()) {
+                for (final JpaNamedQuery namedQuery : jpaEntity.getNamedQueries()) {
                     if (namedQuery.isNativeQuery()) {
                         entityCode.append("    @SqlResultSetMapping(name = \"").append(namedQuery.getName()).append(
                                 "\",\n");

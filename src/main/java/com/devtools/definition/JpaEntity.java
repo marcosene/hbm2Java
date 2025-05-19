@@ -1,7 +1,6 @@
 package com.devtools.definition;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.util.ArrayList;
@@ -11,16 +10,13 @@ import org.apache.commons.lang3.StringUtils;
 
 @Getter
 @Setter
-@NoArgsConstructor
 public class JpaEntity {
 
     private String defaultCascade;
     private String className;
     private String table;
     private String parentClass;
-    private String discriminatorValue;
-    private String discriminatorColumn;
-    private int discriminatorLength;
+    private JpaDiscriminator discriminator;
     private boolean dynamicInsert = false;
     private boolean dynamicUpdate = false;
     private boolean abstractClass = false;
@@ -73,16 +69,11 @@ public class JpaEntity {
         }
     }
 
-    public void setDiscriminatorValue(final String discriminatorValue) {
-        if (StringUtils.isNotBlank(discriminatorValue)) {
-            this.discriminatorValue = discriminatorValue;
+    public JpaDiscriminator getDiscriminator(final boolean create) {
+        if (discriminator == null && create) {
+            discriminator = new JpaDiscriminator();
         }
-    }
-
-    public void setDiscriminatorColumn(final String discriminatorColumn) {
-        if (StringUtils.isNotBlank(discriminatorColumn)) {
-            this.discriminatorColumn = discriminatorColumn;
-        }
+        return discriminator;
     }
 
     public void setDynamicInsert(final String dynamicInsert) {

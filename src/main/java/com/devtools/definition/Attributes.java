@@ -1,157 +1,107 @@
 package com.devtools.definition;
 
-import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class Attributes {
 
     private Attributes() {}
 
-    public static final String ATTR_HIBERNATE_MAPPING_DEFAULT_CASCADE = "default-cascade";
+    public static final String ATTR_DEFAULT_CASCADE = "default-cascade";
+    public static final String ATTR_NAME = "name";
+    public static final String ATTR_TABLE = "table";
+    public static final String ATTR_CLASS = "class";
+    public static final String ATTR_TYPE = "type";
+    public static final String ATTR_DYNAMIC_INSERT = "dynamic-insert";
+    public static final String ATTR_DYNAMIC_UPDATE = "dynamic-update";
+    public static final String ATTR_ABSTRACT = "abstract";
+    public static final String ATTR_MUTABLE = "mutable";
+    public static final String ATTR_EXTENDS = "extends";
+    public static final String ATTR_DISCRIMINATOR_VALUE = "discriminator-value";
+    public static final String ATTR_USAGE = "usage";
+    public static final String ATTR_COLUMN = "column";
+    public static final String ATTR_LENGTH = "length";
+    public static final String ATTR_NOT_NULL = "not-null";
+    public static final String ATTR_UNIQUE = "unique";
+    public static final String ATTR_UNIQUE_KEY = "unique-key";
+    public static final String ATTR_DEFAULT = "default";
+    public static final String ATTR_SQL_TYPE = "sql-type";
+    public static final String ATTR_PRECISION = "precision";
+    public static final String ATTR_SCALE = "scale";
+    public static final String ATTR_UPDATE = "update";
+    public static final String ATTR_OPTIMISTIC_LOCK = "optimistic-lock";
+    public static final String ATTR_LAZY = "lazy";
+    public static final String ATTR_CASCADE = "cascade";
+    public static final String ATTR_INVERSE = "inverse";
+    public static final String ATTR_ACCESS = "access";
+    public static final String ATTR_ORDER_BY = "order-by";
+    public static final String ATTR_INDEX = "index";
+    public static final String ATTR_FOREIGN_KEY = "foreign-key";
+    public static final String ATTR_FETCH = "fetch";
+    public static final String ATTR_CONSTRAINED = "constrained";
+    public static final String ATTR_PROPERTY_REF = "property-ref";
+    public static final String ATTR_UNSAVED_VALUE = "unsaved-value";
 
-    public static final String ATTR_ENTITY_NAME = "name";
-    public static final String ATTR_ENTITY_TABLE = "table";
-    public static final String ATTR_ENTITY_DYNAMIC_INSERT = "dynamic-insert";
-    public static final String ATTR_ENTITY_DYNAMIC_UPDATE = "dynamic-update";
-    public static final String ATTR_ENTITY_ABSTRACT = "abstract";
-    public static final String ATTR_ENTITY_MUTABLE = "mutable";
-    public static final String ATTR_ENTITY_EXTENDS = "extends";
-    public static final String ATTR_ENTITY_DISCRIMINATOR_VALUE = "discriminator-value";
+    public static final Map<String, List<String>> ATTRIBUTES;
 
-    public static final String ATTR_CACHE_USAGE = "usage";
+    static {
+        ATTRIBUTES = new HashMap<>();
+        ATTRIBUTES.put(Tags.TAG_HIBERNATE_MAPPING, List.of(ATTR_DEFAULT_CASCADE));
+        ATTRIBUTES.put(Tags.TAG_CLASS, List.of(ATTR_NAME, ATTR_TABLE, ATTR_DYNAMIC_INSERT, ATTR_DYNAMIC_UPDATE,
+                ATTR_ABSTRACT, ATTR_MUTABLE, ATTR_DISCRIMINATOR_VALUE));
+        ATTRIBUTES.put(Tags.TAG_SUBCLASS, List.of(ATTR_NAME, ATTR_TABLE, ATTR_DYNAMIC_INSERT, ATTR_DYNAMIC_UPDATE,
+                ATTR_ABSTRACT, ATTR_MUTABLE, ATTR_DISCRIMINATOR_VALUE, ATTR_EXTENDS
+        ));
+        ATTRIBUTES.put(Tags.TAG_UNION_SUBCLASS, List.of(ATTR_NAME, ATTR_TABLE, ATTR_DYNAMIC_INSERT, ATTR_DYNAMIC_UPDATE,
+                ATTR_ABSTRACT, ATTR_MUTABLE, ATTR_EXTENDS));
+        ATTRIBUTES.put(Tags.TAG_CACHE, List.of(ATTR_USAGE));
+        ATTRIBUTES.put(Tags.TAG_JOIN, List.of(ATTR_TABLE));
+        ATTRIBUTES.put(Tags.TAG_PROPERTIES, List.of(ATTR_NAME, ATTR_UNIQUE));
+        ATTRIBUTES.put(Tags.TAG_PROPERTY, List.of(ATTR_NAME, ATTR_TYPE, ATTR_COLUMN, ATTR_UPDATE, ATTR_LAZY,
+                ATTR_LENGTH, ATTR_OPTIMISTIC_LOCK));
+        ATTRIBUTES.put(Tags.TAG_COLUMN, List.of(ATTR_NAME, ATTR_LENGTH, ATTR_NOT_NULL, ATTR_INDEX, ATTR_UNIQUE,
+                ATTR_DEFAULT, ATTR_UNIQUE_KEY, ATTR_SQL_TYPE, ATTR_PRECISION, ATTR_SCALE));
+        ATTRIBUTES.put(Tags.TAG_TYPE, List.of(ATTR_NAME));
+        ATTRIBUTES.put(Tags.TAG_PARAM, List.of(ATTR_NAME));
+        ATTRIBUTES.put(Tags.TAG_DISCRIMINATOR, List.of(ATTR_TYPE));
+        ATTRIBUTES.put(Tags.TAG_ID, List.of(ATTR_NAME, ATTR_COLUMN, ATTR_TYPE,
+                ATTR_UNSAVED_VALUE // unsaved-vale="null" is default for JPA (there is no need to annotate it)
+        ));
+        ATTRIBUTES.put(Tags.TAG_GENERATOR, List.of(ATTR_CLASS));
+        ATTRIBUTES.put(Tags.TAG_NATURAL_ID, List.of(ATTR_MUTABLE));
 
-    public static final String ATTR_VERSION_NAME = "name";
-    public static final String ATTR_VERSION_TYPE = "type";
+        final List<String> relationshipAttrs = List.of(ATTR_NAME, ATTR_CLASS, ATTR_LAZY, ATTR_CASCADE, ATTR_ACCESS,
+                ATTR_INDEX, ATTR_UPDATE, ATTR_NOT_NULL, ATTR_FOREIGN_KEY, ATTR_UNIQUE, ATTR_COLUMN, ATTR_CONSTRAINED,
+                ATTR_PROPERTY_REF,
+                ATTR_FETCH // we rely on "lazy" attribute
+        );
+        ATTRIBUTES.put(Tags.TAG_MANY_TO_ONE, relationshipAttrs);
+        ATTRIBUTES.put(Tags.TAG_ONE_TO_ONE, relationshipAttrs);
+        ATTRIBUTES.put(Tags.TAG_ONE_TO_MANY, relationshipAttrs);
+        ATTRIBUTES.put(Tags.TAG_MANY_TO_MANY, relationshipAttrs);
 
-    public static final String ATTR_DISCRIMINATOR_COLUMN = "column";
-    public static final String ATTR_DISCRIMINATOR_NAME = "name";
-    public static final String ATTR_DISCRIMINATOR_LENGTH = "length";
+        ATTRIBUTES.put(Tags.TAG_VERSION, List.of(ATTR_NAME, ATTR_TYPE));
 
-    public static final String ATTR_ID_NAME = "name";
-    public static final String ATTR_ID_TYPE = "type";
+        final List<String> collectionAttrs = List.of(ATTR_NAME, ATTR_TABLE, ATTR_INVERSE, ATTR_LAZY, ATTR_CASCADE, ATTR_ORDER_BY,
+                ATTR_FETCH // we rely on ATTR_LAZY
+        );
+        ATTRIBUTES.put(Tags.TAG_SET, collectionAttrs);
+        ATTRIBUTES.put(Tags.TAG_LIST, collectionAttrs);
+        ATTRIBUTES.put(Tags.TAG_BAG, collectionAttrs);
+        ATTRIBUTES.put(Tags.TAG_MAP, collectionAttrs);
 
-    public static final String ATTR_NATURAL_ID_MUTABLE = "mutable";
+        ATTRIBUTES.put(Tags.TAG_KEY, List.of(ATTR_COLUMN, ATTR_FOREIGN_KEY));
+        ATTRIBUTES.put(Tags.TAG_MAP_KEY, List.of(ATTR_TYPE, ATTR_COLUMN));
+        ATTRIBUTES.put(Tags.TAG_COMPOSITE_MAP_KEY, List.of(ATTR_CLASS));
+        ATTRIBUTES.put(Tags.TAG_KEY_PROPERTY, List.of(ATTR_NAME, ATTR_COLUMN, ATTR_TYPE));
+        ATTRIBUTES.put(Tags.TAG_LIST_INDEX, List.of(ATTR_COLUMN));
+        ATTRIBUTES.put(Tags.TAG_COMPONENT, List.of(ATTR_NAME, ATTR_CLASS));
+        ATTRIBUTES.put(Tags.TAG_QUERY, List.of(ATTR_NAME));
+        ATTRIBUTES.put(Tags.TAG_SQL_QUERY, List.of(ATTR_NAME));
+        ATTRIBUTES.put(Tags.TAG_RETURN_SCALAR, List.of(ATTR_COLUMN, ATTR_TYPE));
 
-    public static final String ATTR_GENERATOR_CLASS = "class";
-    public static final String ATTR_PARAM_NAME = "name";
-
-    public static final String ATTR_COLUMN_NAME = "name";
-    public static final String ATTR_COLUMN_LENGTH = "length";
-    public static final String ATTR_COLUMN_NOT_NULL = "not-null";
-    public static final String ATTR_COLUMN_INDEX = "index";
-    public static final String ATTR_COLUMN_UNIQUE = "unique";
-    public static final String ATTR_COLUMN_UNIQUE_KEY = "unique-key";
-    public static final String ATTR_COLUMN_DEFAULT = "default";
-    public static final String ATTR_COLUMN_SQL_TYPE = "sql-type";
-    public static final String ATTR_COLUMN_PRECISION = "precision";
-    public static final String ATTR_COLUMN_SCALE = "scale";
-
-    public static final String ATTR_COMPONENT_NAME = "name";
-    public static final String ATTR_COMPONENT_CLASS = "class";
-
-    public static final String ATTR_PROPERTIES_NAME = "name";
-
-    public static final String ATTR_PROPERTY_NAME = "name";
-    public static final String ATTR_PROPERTY_TYPE = "type";
-    public static final String ATTR_PROPERTY_UPDATE = "update";
-    public static final String ATTR_PROPERTY_OPTIMISTIC_LOCK = "optimistic-lock";
-
-    public static final String ATTR_RELATIONSHIP_NAME = "name";
-    public static final String ATTR_RELATIONSHIP_TABLE = "table";
-    public static final String ATTR_RELATIONSHIP_CLASS = "class";
-    public static final String ATTR_RELATIONSHIP_LAZY = "lazy";
-    public static final String ATTR_RELATIONSHIP_FETCH = "fetch";
-    public static final String ATTR_RELATIONSHIP_CASCADE = "cascade";
-    public static final String ATTR_RELATIONSHIP_INVERSE = "inverse";
-    public static final String ATTR_RELATIONSHIP_ACCESS = "access";
-    public static final String ATTR_RELATIONSHIP_ORDER_BY = "order-by";
-    public static final String ATTR_RELATIONSHIP_INDEX = "index";
-
-    public static final String ATTR_LIST_INDEX_COLUMN = "column";
-
-    public static final String ATTR_KEY_COLUMN = "column";
-    public static final String ATTR_KEY_FOREIGN_KEY = "foreign-key";
-
-    public static final String ATTR_MAP_KEY_COLUMN = "column";
-    public static final String ATTR_MAP_KEY_TYPE = "type";
-
-    public static final String ATTR_COMPOSITE_MAP_KEY_CLASS = "class";
-
-    public static final String ATTR_KEY_PROPERTY_NAME = "name";
-    public static final String ATTR_KEY_PROPERTY_COLUMN = "column";
-
-    public static final String ATTR_TYPE_NAME = "name";
-
-    public static final String ATTR_QUERY_NAME = "name";
-    public static final String ATTR_SQL_QUERY_NAME = "name";
-    public static final String ATTR_RETURN_SCALAR_COLUMN = "column";
-    public static final String ATTR_RETURN_SCALAR_TYPE = "type";
-
-    // Ignored attributes
-    public static final String ATTR_ID_UNSAVED_VALUE = "unsaved-value";
-
-    public static final List<String> ATTRIBUTES = Arrays.asList(
-            ATTR_HIBERNATE_MAPPING_DEFAULT_CASCADE,
-            ATTR_ENTITY_NAME,
-            ATTR_ENTITY_TABLE,
-            ATTR_ENTITY_DYNAMIC_INSERT,
-            ATTR_ENTITY_DYNAMIC_UPDATE,
-            ATTR_ENTITY_ABSTRACT,
-            ATTR_ENTITY_MUTABLE,
-            ATTR_ENTITY_EXTENDS,
-            ATTR_ENTITY_DISCRIMINATOR_VALUE,
-            ATTR_CACHE_USAGE,
-            ATTR_VERSION_NAME,
-            ATTR_VERSION_TYPE,
-            ATTR_DISCRIMINATOR_COLUMN,
-            ATTR_DISCRIMINATOR_NAME,
-            ATTR_DISCRIMINATOR_LENGTH,
-            ATTR_ID_NAME,
-            ATTR_ID_TYPE,
-            ATTR_NATURAL_ID_MUTABLE,
-            ATTR_GENERATOR_CLASS,
-            ATTR_PARAM_NAME,
-            ATTR_COLUMN_NAME,
-            ATTR_COLUMN_LENGTH,
-            ATTR_COLUMN_NOT_NULL,
-            ATTR_COLUMN_INDEX,
-            ATTR_COLUMN_UNIQUE,
-            ATTR_COLUMN_UNIQUE_KEY,
-            ATTR_COLUMN_DEFAULT,
-            ATTR_COLUMN_SQL_TYPE,
-            ATTR_COLUMN_PRECISION,
-            ATTR_COLUMN_SCALE,
-            ATTR_COMPONENT_NAME,
-            ATTR_COMPONENT_CLASS,
-            ATTR_PROPERTIES_NAME,
-            ATTR_PROPERTY_NAME,
-            ATTR_PROPERTY_TYPE,
-            ATTR_PROPERTY_UPDATE,
-            ATTR_PROPERTY_OPTIMISTIC_LOCK,
-            ATTR_RELATIONSHIP_NAME,
-            ATTR_RELATIONSHIP_TABLE,
-            ATTR_RELATIONSHIP_CLASS,
-            ATTR_RELATIONSHIP_LAZY,
-            ATTR_RELATIONSHIP_CASCADE,
-            ATTR_RELATIONSHIP_INVERSE,
-            ATTR_RELATIONSHIP_ACCESS,
-            ATTR_RELATIONSHIP_ORDER_BY,
-            ATTR_RELATIONSHIP_INDEX,
-            ATTR_LIST_INDEX_COLUMN,
-            ATTR_KEY_COLUMN,
-            ATTR_KEY_FOREIGN_KEY,
-            ATTR_MAP_KEY_COLUMN,
-            ATTR_MAP_KEY_TYPE,
-            ATTR_COMPOSITE_MAP_KEY_CLASS,
-            ATTR_KEY_PROPERTY_NAME,
-            ATTR_KEY_PROPERTY_COLUMN,
-            ATTR_TYPE_NAME,
-            ATTR_SQL_QUERY_NAME,
-            ATTR_RETURN_SCALAR_COLUMN,
-            ATTR_RETURN_SCALAR_TYPE,
-
-            // Ignored attributes
-            ATTR_ID_UNSAVED_VALUE,
-            ATTR_RELATIONSHIP_FETCH // we rely on ATTR_RELATIONSHIP_LAZY
-    );
+        // Ignored attributes
+        //ATTR_UNSAVED_VALUE
+    }
 }

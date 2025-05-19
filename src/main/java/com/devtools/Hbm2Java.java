@@ -6,7 +6,7 @@ import java.io.IOException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.devtools.definition.JpaEntity;
+import com.devtools.definition.JpaBase;
 import com.devtools.processors.EntityGenerator;
 import com.devtools.processors.HbmParser;
 
@@ -34,15 +34,13 @@ public class Hbm2Java {
                     final HbmParser hbmParser = new HbmParser();
 
                     LOG.info("Parsing: " + hbmFilePath);
-                    final JpaEntity entity = hbmParser.parse(hbmFilePath);
+                    final JpaBase jpaBase = hbmParser.parse(hbmFilePath);
 
-                    if (entity != null) {
+                    if (jpaBase != null) {
                         try {
                             final EntityGenerator entityGenerator = new EntityGenerator();
-                            entityGenerator.generate(entity, outputFolder);
-                            LOG.info("Entity successfully written to " + outputFolder + "\\" + entity.getClassName()
-                                    + ".java");
-                        } catch (final IOException e) {
+                            entityGenerator.generate(jpaBase, outputFolder);
+                        } catch (final Exception e) {
                             LOG.error("Error writing to file: " + e.getMessage());
                         }
                     } else {
@@ -53,7 +51,7 @@ public class Hbm2Java {
                 LOG.warn("No .hbm.xml files found in: " + inputFolder);
             }
         } else {
-            LOG.error("Folder not found or is not a directory: " + inputFolder);
+            LOG.error("Input folder not found or is not a directory: " + inputFolder);
         }
     }
 }

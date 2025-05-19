@@ -17,12 +17,26 @@ public class JpaRelationship {
     private String type;
     private String fetch;
     private String cascade;
-    private boolean inverse;
+    private boolean inverse = false;
     private String collectionType;
     private String orderColumn;
     private String access;
     private String table;
+    private boolean optional = true;
+    private String mappedBy;
     private List<JpaColumn> referencedColumns = new ArrayList<>();
+
+    public void setName(final String name) {
+        this.name = StringUtils.isNotBlank(name) ? name : null;
+    }
+
+    public void setTargetEntity(final String targetEntity) {
+        this.targetEntity = StringUtils.isNotBlank(targetEntity) ? targetEntity : null;
+    }
+
+    public void setType(final String type) {
+        this.type = StringUtils.isNotBlank(type) ? type : null;
+    }
 
     public void setFetch(final String fetch) {
         this.fetch = StringUtils.isNotBlank(fetch) ? fetch : null;
@@ -43,6 +57,14 @@ public class JpaRelationship {
 
     public void setAccess(final String access) {
         this.access = StringUtils.isNotBlank(access) ? access : null;
+    }
+
+    public void setTable(final String table) {
+        this.table = StringUtils.isNotBlank(table) ? table : null;
+    }
+
+    public void setMappedBy(final String mappedBy) {
+        this.mappedBy = StringUtils.isNotBlank(mappedBy) ? mappedBy : null;
     }
 
     public void addReferencedColumn(final JpaColumn referencedColumn) {
