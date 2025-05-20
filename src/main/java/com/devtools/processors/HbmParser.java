@@ -51,7 +51,7 @@ public class HbmParser {
             jpaBase.addEntity(queriesEntity);
         }
 
-        validateMissingImplementations(root);
+        checkMissingTagAttributeImplementations(root);
 
         return jpaBase;
     }
@@ -77,24 +77,24 @@ public class HbmParser {
     private void parseClasses(final Element root, final JpaBase jpaBase, final String defaultCascade) {
         final List<Element> classElements = Utils.getChildrenByTag(root, Tags.TAG_CLASS);
         for (final Element classElement : classElements) {
-            jpaBase.addEntity(parseEntityDefinition(classElement, defaultCascade));
+            jpaBase.addEntity(parseEntity(classElement, defaultCascade));
             parseClasses(classElement, jpaBase, defaultCascade);
         }
 
         final List<Element> subclassElements = Utils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
         for (final Element subclassElement : subclassElements) {
-            jpaBase.addEntity(parseEntityDefinition(subclassElement, defaultCascade));
+            jpaBase.addEntity(parseEntity(subclassElement, defaultCascade));
             parseClasses(subclassElement, jpaBase, defaultCascade);
         }
 
         final List<Element> unionSubclassElements = Utils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
         for (final Element unionSubclassElement : unionSubclassElements) {
-            jpaBase.addEntity(parseEntityDefinition(unionSubclassElement, defaultCascade));
+            jpaBase.addEntity(parseEntity(unionSubclassElement, defaultCascade));
             parseClasses(unionSubclassElement, jpaBase, defaultCascade);
         }
     }
 
-    private JpaEntity parseEntityDefinition(final Element classElement, final String defaultCascade) {
+    private JpaEntity parseEntity(final Element classElement, final String defaultCascade) {
         final JpaEntity entityDef = new JpaEntity();
 
         entityDef.setDefaultCascade(defaultCascade);
@@ -132,9 +132,9 @@ public class HbmParser {
 
         parseProperties(classElement, entityDef);
 
-        parseProperty(classElement, entityDef, null, JpaColumn.NaturalId.NONE, true);
+        parseProperty(classElement, entityDef, true);
 
-        parseRelationships(classElement, entityDef, "");
+        parseRelationships(classElement, entityDef);
 
         parseCollections(classElement, entityDef);
 
@@ -239,14 +239,26 @@ public class HbmParser {
             final boolean unique = Boolean.parseBoolean(propertiesElement.getAttribute(Attributes.ATTR_UNIQUE));
             final String uniqueConstraintName = unique ? propertiesElement.getAttribute(Attributes.ATTR_NAME) : "";
 
-            parseProperty(propertiesElement, entityDef, uniqueConstraintName, JpaColumn.NaturalId.NONE, false);
+            parseProperty(propertiesElement, entityDef, uniqueConstraintName);
 
             parseRelationships(propertiesElement, entityDef, uniqueConstraintName);
         }
     }
 
     private void parseProperty(final Element element, final JpaEntity entityDef) {
-        parseProperty(element, entityDef, null, JpaColumn.NaturalId.NONE, false);
+        parseProperty(element, entityDef, false);
+    }
+
+    private void parseProperty(final Element element, final JpaEntity entityDef, final String uniqueConstraint) {
+        parseProperty(element, entityDef, uniqueConstraint, JpaColumn.NaturalId.NONE, false);
+    }
+
+    private void parseProperty(final Element element, final JpaEntity entityDef, final JpaColumn.NaturalId naturalId) {
+        parseProperty(element, entityDef, null, naturalId, false);
+    }
+
+    private void parseProperty(final Element element, final JpaEntity entityDef, final boolean checkComposite) {
+        parseProperty(element, entityDef, null, JpaColumn.NaturalId.NONE, checkComposite);
     }
 
     private void parseProperty(final Element element, final JpaEntity entityDef,
@@ -266,23 +278,6 @@ public class HbmParser {
                 entityDef.addColumn(jpaColumn);
             }
         }
-    }
-
-    private List<JpaColumn> parseColumns(final Element parentElement, final String uniqueConstraint) {
-        final List<JpaColumn> jpaColumns = new ArrayList<>();
-
-        final List<Element> columns = Utils.getChildrenByTag(parentElement, Tags.TAG_COLUMN);
-        for (final Element columnElement : columns) {
-            final JpaColumn jpaColumn = parseProperty(parentElement, uniqueConstraint);
-
-            if (Tags.TAG_MANY_TO_MANY.equals(parentElement.getTagName())) {
-                jpaColumn.setInverseJoin(true);
-            }
-
-            parseColumn(columnElement, jpaColumn);
-            jpaColumns.add(jpaColumn);
-        }
-        return jpaColumns;
     }
 
     private JpaColumn parseProperty(final Element parentElement, final String uniqueConstraint) {
@@ -313,6 +308,23 @@ public class HbmParser {
         return jpaColumn;
     }
 
+    private List<JpaColumn> parseColumns(final Element parentElement, final String uniqueConstraint) {
+        final List<JpaColumn> jpaColumns = new ArrayList<>();
+
+        final List<Element> columns = Utils.getChildrenByTag(parentElement, Tags.TAG_COLUMN);
+        for (final Element columnElement : columns) {
+            final JpaColumn jpaColumn = parseProperty(parentElement, uniqueConstraint);
+
+            if (Tags.TAG_MANY_TO_MANY.equals(parentElement.getTagName())) {
+                jpaColumn.setInverseJoin(true);
+            }
+
+            parseColumn(columnElement, jpaColumn);
+            jpaColumns.add(jpaColumn);
+        }
+        return jpaColumns;
+    }
+
     private void parseColumn(final Element columnElement, final JpaColumn jpaColumn) {
         jpaColumn.setColumnName(columnElement.getAttribute(Attributes.ATTR_NAME));
         jpaColumn.setLength(columnElement.getAttribute(Attributes.ATTR_LENGTH));
@@ -334,9 +346,13 @@ public class HbmParser {
             final String mutable = naturalIdElement.getAttribute(Attributes.ATTR_MUTABLE);
             final JpaColumn.NaturalId naturalId = "true".equals(mutable) ?
                     JpaColumn.NaturalId.MUTABLE : JpaColumn.NaturalId.IMMUTABLE;
-            parseProperty(naturalIdElement, entityDef, null, naturalId, false);
-            parseRelationships(naturalIdElement, entityDef, null);
+            parseProperty(naturalIdElement, entityDef, naturalId);
+            parseRelationships(naturalIdElement, entityDef);
         }
+    }
+
+    private void parseRelationships(final Element element, final JpaEntity entityDef) {
+        parseRelationships(null, element, entityDef, null);
     }
 
     private void parseRelationships(final Element element, final JpaEntity entityDef, final String uniqueConstraintName) {
@@ -348,7 +364,7 @@ public class HbmParser {
         final List<Element> manyToOneElements = Utils.getChildrenByTag(element, Tags.TAG_MANY_TO_ONE);
         for (final Element relationshipElement : manyToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
-            relationship.setType("ManyToOne");
+            relationship.setType(JpaRelationship.Type.ManyToOne);
             relationship.setFetch("eager");
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
         }
@@ -356,7 +372,7 @@ public class HbmParser {
         final List<Element> oneToOneElements = Utils.getChildrenByTag(element, Tags.TAG_ONE_TO_ONE);
         for (final Element relationshipElement : oneToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
-            relationship.setType("OneToOne");
+            relationship.setType(JpaRelationship.Type.OneToOne);
             relationship.setFetch("eager");
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
 
@@ -370,13 +386,13 @@ public class HbmParser {
 
         final List<Element> oneToManyElements = Utils.getChildrenByTag(element, Tags.TAG_ONE_TO_MANY);
         for (final Element relationshipElement : oneToManyElements) {
-            collectionRelationship.setType("OneToMany");
+            collectionRelationship.setType(JpaRelationship.Type.OneToMany);
             parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
         final List<Element> manyToManyElements = Utils.getChildrenByTag(element, Tags.TAG_MANY_TO_MANY);
         for (final Element relationshipElement : manyToManyElements) {
-            collectionRelationship.setType("ManyToMany");
+            collectionRelationship.setType(JpaRelationship.Type.ManyToMany);
             parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
     }
@@ -591,7 +607,7 @@ public class HbmParser {
         }
     }
 
-    private void validateMissingImplementations(final Element parent) {
+    private void checkMissingTagAttributeImplementations(final Element parent) {
         if (!Tags.TAGS.contains(parent.getTagName())) {
             LOG.error("ATTENTION: No implementation for tag " + parent.getTagName());
         }
@@ -607,7 +623,7 @@ public class HbmParser {
 
         final List<Element> children = Utils.getChildrenByTag(parent, null);
         for (final Element child : children) {
-            validateMissingImplementations(child);
+            checkMissingTagAttributeImplementations(child);
         }
     }
 

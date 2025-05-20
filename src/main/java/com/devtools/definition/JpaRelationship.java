@@ -12,9 +12,13 @@ import org.apache.commons.lang3.StringUtils;
 @Setter
 public class JpaRelationship {
 
+    public enum Type {
+        OneToMany, OneToOne, ManyToOne, ManyToMany
+    }
+
     private String name;
     private String targetEntity;
-    private String type;
+    private Type type;
     private String fetch;
     private String cascade;
     private boolean inverse = false;
@@ -32,10 +36,6 @@ public class JpaRelationship {
 
     public void setTargetEntity(final String targetEntity) {
         this.targetEntity = StringUtils.isNotBlank(targetEntity) ? targetEntity : null;
-    }
-
-    public void setType(final String type) {
-        this.type = StringUtils.isNotBlank(type) ? type : null;
     }
 
     public void setFetch(final String fetch) {

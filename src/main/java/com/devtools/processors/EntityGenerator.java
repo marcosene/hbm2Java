@@ -47,7 +47,7 @@ public class EntityGenerator {
 
         generateAttributeOverrides(entityDef, entityCode);
 
-        // Handle relationships (ManyToOne, OneToMany, OneToOne)
+        // Handle relationships (ManyToOne, OneToMany, OneToOne, ManyToMany)
         generateRelationships(entityDef, entityCode);
 
         // Handle Embedded fields and Embeddable classes
@@ -462,7 +462,7 @@ public class EntityGenerator {
 
             // Generate the appropriate relationship annotation
             switch (relationship.getType()) {
-                case "ManyToOne":
+                case ManyToOne:
                     if (StringUtils.isNotBlank(relationship.getAccess())) {
                         annotations.append("    @Access(AccessType.")
                                 .append(relationship.getAccess().toUpperCase()).append(")\n");
@@ -474,7 +474,7 @@ public class EntityGenerator {
                     }
                     break;
 
-                case "OneToMany":
+                case OneToMany:
                     if (relationship.isInverse()) {
                         annotations.append("    // TODO check correct name for 'mappedBy' in the class ");
                         annotations.append(relationship.getTargetEntity()).append("\n");
@@ -501,7 +501,7 @@ public class EntityGenerator {
                     }
                     break;
 
-                case "OneToOne":
+                case OneToOne:
                     if (entityDef.getPrimaryKey() != null &&
                             "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType()) &&
                             relationship.getName().equals(entityDef.getPrimaryKey().getGeneratorName())) {
@@ -523,7 +523,7 @@ public class EntityGenerator {
                     }
                     break;
 
-                case "ManyToMany":
+                case ManyToMany:
                     annotations.append("    @ManyToMany(fetch = FetchType.").append(fetchType);
                     annotations.append(StringUtils.isNotBlank(cascadeAnnotation) ? ", " + cascadeAnnotation : "").append(")\n");
                     if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
@@ -584,7 +584,8 @@ public class EntityGenerator {
             // Add the generated relationship field
             entityCode.append(annotations);
             entityCode.append("    private ");
-            if (relationship.getType().equals("OneToMany") || relationship.getType().equals("ManyToMany")) {
+            if (relationship.getType().equals(JpaRelationship.Type.OneToMany) ||
+                    relationship.getType().equals(JpaRelationship.Type.ManyToMany)) {
                 switch (relationship.getCollectionType()) {
                     case Tags.TAG_SET:
                         entityCode.append("Set<");
@@ -605,7 +606,8 @@ public class EntityGenerator {
                 entityCode.append(relationship.getSimpleClass());
             }
 
-            if (relationship.getType().equals("OneToMany") || relationship.getType().equals("ManyToMany")) {
+            if (relationship.getType().equals(JpaRelationship.Type.OneToMany) ||
+                    relationship.getType().equals(JpaRelationship.Type.ManyToMany)) {
                 entityCode.append(">");
             }
             entityCode.append(" ").append(relationship.getName()).append(";\n\n");
