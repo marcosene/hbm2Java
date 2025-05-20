@@ -11,7 +11,7 @@
 
 ## Prerequisites
 
-- Java Development Kit (JDK) 8 or higher.
+- Java Development Kit (JDK) 17 or higher.
 - Apache Maven 3.x.
 
 ## Building the Project

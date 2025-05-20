@@ -70,11 +70,4 @@ public class JpaRelationship {
     public void addReferencedColumn(final JpaColumn referencedColumn) {
         referencedColumns.add(referencedColumn);
     }
-
-    public String getSimpleClass() {
-        final String fullClassName = getTargetEntity();
-        return fullClassName.contains(".")
-                ? fullClassName.substring(fullClassName.lastIndexOf(".") + 1)
-                : fullClassName;
-    }
 }

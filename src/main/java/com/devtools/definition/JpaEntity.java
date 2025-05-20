@@ -56,6 +56,10 @@ public class JpaEntity {
         }
     }
 
+    public String getFullParentClass() {
+        return parentClass;
+    }
+
     public String getParentClass() {
         if (parentClass != null) {
             return parentClass.contains(".") ? parentClass.substring(parentClass.lastIndexOf(".") + 1) : parentClass;

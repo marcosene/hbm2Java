@@ -504,7 +504,7 @@ public class HbmParser {
                 keyColumn.setColumnName(keyElement.getAttribute(Attributes.ATTR_COLUMN));
             } else {
                 final List<JpaColumn> jpaColumns = parseColumns(keyElement, null);
-                keyColumn = jpaColumns.getFirst();
+                keyColumn = jpaColumns.get(0);
             }
             if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY))) {
                 keyColumn.setForeignKey(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY));
@@ -514,7 +514,7 @@ public class HbmParser {
 
         final Element mapKeyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_MAP_KEY);
         if (mapKeyElement != null) {
-            final JpaColumn keyColumn = relationship.getReferencedColumns().getFirst();
+            final JpaColumn keyColumn = relationship.getReferencedColumns().get(0);
             keyColumn.setType(Utils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_TYPE)));
             keyColumn.setName(mapKeyElement.getAttribute(Attributes.ATTR_COLUMN));
         }

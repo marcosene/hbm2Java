@@ -59,7 +59,7 @@ public interface Utils {
         if (elements.isEmpty()) {
             return null;
         }
-        return elements.getFirst();
+        return elements.get(0);
     }
 
     static String mapHibernateTypeToJava(final String hibernateType) {
@@ -93,7 +93,7 @@ public interface Utils {
     // Helper method to check for native types
     static boolean isNativeType(final String type) {
         final Set<String> nativeTypes = new HashSet<>(Arrays.asList(
-                "int", "long", "float", "double", "boolean", "char", "byte", "short",
+                "int", "long", "float", "double", "boolean", "char", "byte", "short", "Short",
                 "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
                 "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
         ));
@@ -253,5 +253,14 @@ public interface Utils {
             return true;
         }
         return false;
+    }
+
+    static String getSimpleClass(final String fullClassName) {
+        if (fullClassName == null) {
+            return null;
+        }
+        return fullClassName.contains(".")
+                ? fullClassName.substring(fullClassName.lastIndexOf(".") + 1)
+                : fullClassName;
     }
 }

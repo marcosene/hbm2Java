@@ -1,7 +1,6 @@
 package com.devtools;
 
 import java.io.File;
-import java.io.IOException;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
