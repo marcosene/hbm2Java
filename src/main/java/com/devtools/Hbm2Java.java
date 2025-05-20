@@ -41,7 +41,7 @@ public class Hbm2Java {
                             final EntityGenerator entityGenerator = new EntityGenerator();
                             entityGenerator.generate(jpaBase, outputFolder);
                         } catch (final Exception e) {
-                            LOG.error("Error writing to file: " + e.getMessage());
+                            LOG.error("Error writing to file: " + e.getMessage(), e);
                         }
                     } else {
                         LOG.error("Failed to parse: " + hbmFilePath);

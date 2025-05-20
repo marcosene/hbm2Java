@@ -333,7 +333,7 @@ public class EntityGenerator {
                 entityCode.append(col.getNaturalId() == JpaColumn.NaturalId.MUTABLE ? "(mutable = true)" : "");
                 entityCode.append("\n");
             }
-            if (col.getType(false).endsWith("Type")) {
+            if (col.getType() != null && col.getType(false).endsWith("Type")) {
                 entityCode.append("    @org.hibernate.annotations.Type(type = \"").append(col.getType(false)).append("\"");
                 if (!col.getTypeParams().isEmpty()) {
                     entityCode.append(",\n        parameters = {\n");

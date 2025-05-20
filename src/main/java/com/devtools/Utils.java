@@ -63,6 +63,9 @@ public interface Utils {
     }
 
     static String mapHibernateTypeToJava(final String hibernateType) {
+        if (hibernateType == null) {
+            return null;
+        }
         return switch (hibernateType.toLowerCase()) {
             case "string", "text", "character", "char" -> String.class.getSimpleName();
             case "integer", "int" -> Integer.class.getSimpleName();
