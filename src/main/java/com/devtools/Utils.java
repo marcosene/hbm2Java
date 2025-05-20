@@ -91,13 +91,13 @@ public interface Utils {
     }
 
     // Helper method to check for native types
-    static boolean isNativeType(final String type) {
+    static boolean isCustomType(final String type) {
         final Set<String> nativeTypes = new HashSet<>(Arrays.asList(
                 "int", "long", "float", "double", "boolean", "char", "byte", "short", "Short",
                 "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
                 "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
         ));
-        return nativeTypes.contains(type);
+        return !nativeTypes.contains(type);
     }
 
     static String getDiscriminatorType(final String type) {

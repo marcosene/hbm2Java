@@ -10,7 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 
 @Getter
 @Setter
-public class JpaRelationship {
+public class JpaRelationship extends JpaAnnotation {
 
     public enum Type {
         OneToMany, OneToOne, ManyToOne, ManyToMany

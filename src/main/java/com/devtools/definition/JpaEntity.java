@@ -10,7 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 
 @Getter
 @Setter
-public class JpaEntity {
+public class JpaEntity extends JpaAnnotation {
 
     private String defaultCascade;
     private String className;

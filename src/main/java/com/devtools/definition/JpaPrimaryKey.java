@@ -5,7 +5,7 @@ import lombok.Setter;
 
 @Setter
 @Getter
-public class JpaPrimaryKey {
+public class JpaPrimaryKey extends JpaAnnotation {
 
     private String type;
     private String name;

@@ -12,7 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 @Getter
 @Setter
 @NoArgsConstructor
-public class JpaColumn {
+public class JpaColumn extends JpaAnnotation {
 
     public enum NaturalId {
         NONE, MUTABLE, IMMUTABLE

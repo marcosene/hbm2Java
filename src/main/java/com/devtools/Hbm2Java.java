@@ -6,6 +6,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.devtools.definition.JpaBase;
+import com.devtools.processors.AnnotationBuilder;
 import com.devtools.processors.EntityGenerator;
 import com.devtools.processors.HbmParser;
 
@@ -37,6 +38,9 @@ public class Hbm2Java {
 
                     if (jpaBase != null) {
                         try {
+                            final AnnotationBuilder annotationBuilder = new AnnotationBuilder();
+                            annotationBuilder.build(jpaBase);
+
                             final EntityGenerator entityGenerator = new EntityGenerator();
                             entityGenerator.generate(jpaBase, outputFolder);
                         } catch (final Exception e) {
