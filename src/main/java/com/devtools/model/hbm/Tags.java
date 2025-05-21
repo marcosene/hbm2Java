@@ -1,4 +1,4 @@
-package com.devtools.definition;
+package com.devtools.model.hbm;
 
 import java.util.List;
 

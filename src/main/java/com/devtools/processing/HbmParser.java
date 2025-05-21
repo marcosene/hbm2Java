@@ -1,4 +1,4 @@
-package com.devtools.processors;
+package com.devtools.processing;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -22,15 +22,17 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
-import com.devtools.Utils;
-import com.devtools.definition.Attributes;
-import com.devtools.definition.JpaBase;
-import com.devtools.definition.JpaColumn;
-import com.devtools.definition.JpaEntity;
-import com.devtools.definition.JpaNamedQuery;
-import com.devtools.definition.JpaPrimaryKey;
-import com.devtools.definition.JpaRelationship;
-import com.devtools.definition.Tags;
+import com.devtools.utils.Utils;
+import com.devtools.model.hbm.Attributes;
+import com.devtools.model.jpa.JpaBase;
+import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
+import com.devtools.model.jpa.JpaNamedQuery;
+import com.devtools.model.jpa.JpaPrimaryKey;
+import com.devtools.model.jpa.JpaRelationship;
+import com.devtools.model.hbm.Tags;
+import com.devtools.utils.DomUtils;
+import com.devtools.utils.HibernateUtils;
 
 public class HbmParser {
 
@@ -75,21 +77,21 @@ public class HbmParser {
     }
 
     private void parseClasses(final Element root, final JpaBase jpaBase, final String defaultCascade) {
-        final List<Element> classElements = Utils.getChildrenByTag(root, Tags.TAG_CLASS);
+        final List<Element> classElements = DomUtils.getChildrenByTag(root, Tags.TAG_CLASS);
         for (final Element classElement : classElements) {
             final JpaEntity jpaEntity = parseEntity(classElement, defaultCascade);
             jpaBase.addEntity(jpaEntity);
             parseClasses(classElement, jpaBase, defaultCascade);
         }
 
-        final List<Element> subclassElements = Utils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
+        final List<Element> subclassElements = DomUtils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
         for (final Element subclassElement : subclassElements) {
             final JpaEntity jpaEntity = parseEntity(subclassElement, defaultCascade);
             jpaBase.addEntity(jpaEntity);
             parseClasses(subclassElement, jpaBase, defaultCascade);
         }
 
-        final List<Element> unionSubclassElements = Utils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
+        final List<Element> unionSubclassElements = DomUtils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
         for (final Element unionSubclassElement : unionSubclassElements) {
             final JpaEntity jpaEntity = parseEntity(unionSubclassElement, defaultCascade);
             jpaBase.addEntity(jpaEntity);
@@ -112,12 +114,12 @@ public class HbmParser {
         entityDef.setParentClass(classElement.getAttribute(Attributes.ATTR_EXTENDS));
         entityDef.getDiscriminator(true).setValue(classElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_VALUE));
 
-        final Element cacheElement = Utils.getFirstChildByTag(classElement, Tags.TAG_CACHE);
+        final Element cacheElement = DomUtils.getFirstChildByTag(classElement, Tags.TAG_CACHE);
         if (cacheElement != null) {
             entityDef.setCacheUsage(cacheElement.getAttribute(Attributes.ATTR_USAGE));
         }
 
-        final Element joinElement = Utils.getFirstChildByTag(classElement, Tags.TAG_JOIN);
+        final Element joinElement = DomUtils.getFirstChildByTag(classElement, Tags.TAG_JOIN);
         if (joinElement != null) {
             entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
             entityDef.setSecondTable(true);
@@ -147,11 +149,11 @@ public class HbmParser {
     }
 
     private void parseDiscriminator(final Element element, final JpaEntity entityDef) {
-        final Element discriminatorElement = Utils.getFirstChildByTag(element, Tags.TAG_DISCRIMINATOR);
+        final Element discriminatorElement = DomUtils.getFirstChildByTag(element, Tags.TAG_DISCRIMINATOR);
         if (discriminatorElement != null) {
             entityDef.getDiscriminator(true).setType(discriminatorElement.getAttribute(Attributes.ATTR_TYPE));
 
-            final Element columnElement = Utils.getFirstChildByTag(discriminatorElement, Tags.TAG_COLUMN);
+            final Element columnElement = DomUtils.getFirstChildByTag(discriminatorElement, Tags.TAG_COLUMN);
             if (columnElement != null) {
                 entityDef.getDiscriminator(true).setColumn(columnElement.getAttribute(Attributes.ATTR_NAME));
                 entityDef.getDiscriminator(true).setLength(columnElement.getAttribute(Attributes.ATTR_LENGTH));
@@ -160,27 +162,27 @@ public class HbmParser {
     }
 
     private void parseIdAndGenerator(final Element element, final JpaEntity entityDef) {
-        final Element idElement = Utils.getFirstChildByTag(element, Tags.TAG_ID);
+        final Element idElement = DomUtils.getFirstChildByTag(element, Tags.TAG_ID);
         if (idElement != null) {
             final JpaPrimaryKey primaryKey = new JpaPrimaryKey();
 
             primaryKey.setName(idElement.getAttribute(Attributes.ATTR_NAME));
             primaryKey.setColumnName(idElement.getAttribute(Attributes.ATTR_COLUMN));
-            primaryKey.setType(Utils.mapHibernateTypeToJava(idElement.getAttribute(Attributes.ATTR_TYPE)));
+            primaryKey.setType(HibernateUtils.mapHibernateTypeToJava(idElement.getAttribute(Attributes.ATTR_TYPE)));
 
-            final Element columnElement = Utils.getFirstChildByTag(idElement, Tags.TAG_COLUMN);
+            final Element columnElement = DomUtils.getFirstChildByTag(idElement, Tags.TAG_COLUMN);
             if (columnElement != null) {
                 primaryKey.setColumnName(columnElement.getAttribute(Attributes.ATTR_NAME));
             }
 
             // Handle the generator
-            final Element generatorElement = Utils.getFirstChildByTag(idElement, Tags.TAG_GENERATOR);
+            final Element generatorElement = DomUtils.getFirstChildByTag(idElement, Tags.TAG_GENERATOR);
             if (generatorElement != null) {
                 final String generatorClass = generatorElement.getAttribute(Attributes.ATTR_CLASS);
                 final Map<String, String> params = new HashMap<>();
 
                 // Collect all params
-                final List<Element> paramElements = Utils.getChildrenByTag(generatorElement, Tags.TAG_PARAM);
+                final List<Element> paramElements = DomUtils.getChildrenByTag(generatorElement, Tags.TAG_PARAM);
                 for (final Element paramElement : paramElements) {
                     final String paramName = paramElement.getAttribute(Attributes.ATTR_NAME);
                     final String paramValue = paramElement.getTextContent().trim();
@@ -226,7 +228,7 @@ public class HbmParser {
     }
 
     private void parseVersions(final Element element, final JpaEntity entityDef) {
-        final List<Element> versionElements = Utils.getChildrenByTag(element, Tags.TAG_VERSION);
+        final List<Element> versionElements = DomUtils.getChildrenByTag(element, Tags.TAG_VERSION);
         for(final Element versionElement : versionElements) {
             final List<JpaColumn> jpaColumns = parseColumns(versionElement, null);
             for (final JpaColumn jpaColumn : jpaColumns) {
@@ -237,7 +239,7 @@ public class HbmParser {
     }
 
     private void parseProperties(final Element element, final JpaEntity entityDef) {
-        final List<Element> propertiesElements = Utils.getChildrenByTag(element, Tags.TAG_PROPERTIES);
+        final List<Element> propertiesElements = DomUtils.getChildrenByTag(element, Tags.TAG_PROPERTIES);
         for (final Element propertiesElement : propertiesElements) {
             final boolean unique = Boolean.parseBoolean(propertiesElement.getAttribute(Attributes.ATTR_UNIQUE));
             final String uniqueConstraintName = unique ? propertiesElement.getAttribute(Attributes.ATTR_NAME) : "";
@@ -266,7 +268,7 @@ public class HbmParser {
 
     private void parseProperty(final Element element, final JpaEntity entityDef,
             final String uniqueConstraint, final JpaColumn.NaturalId naturalId, final boolean checkComposite) {
-        final List<Element> propertyElements = Utils.getChildrenByTag(element, Tags.TAG_PROPERTY);
+        final List<Element> propertyElements = DomUtils.getChildrenByTag(element, Tags.TAG_PROPERTY);
         for (final Element propertyElement : propertyElements) {
             final List<JpaColumn> jpaColumns = parseColumns(propertyElement, uniqueConstraint);
             if (jpaColumns.isEmpty()) {
@@ -297,11 +299,11 @@ public class HbmParser {
         jpaColumn.setOptimisticLock(StringUtils.isBlank(optimisticLock) || Boolean.parseBoolean(optimisticLock));
         jpaColumn.setUniqueConstraint(uniqueConstraint);
 
-        final Element typeElement = Utils.getFirstChildByTag(parentElement, Tags.TAG_TYPE);
+        final Element typeElement = DomUtils.getFirstChildByTag(parentElement, Tags.TAG_TYPE);
         if (typeElement != null) {
             jpaColumn.setType(typeElement.getAttribute(Attributes.ATTR_NAME));
 
-            final List<Element> typeParams = Utils.getChildrenByTag(typeElement, Tags.TAG_PARAM);
+            final List<Element> typeParams = DomUtils.getChildrenByTag(typeElement, Tags.TAG_PARAM);
             for (final Element typeParamElement : typeParams) {
                 final String typeName = typeParamElement.getAttribute(Attributes.ATTR_NAME);
                 final String typeValue = typeParamElement.getTextContent().trim();
@@ -314,7 +316,7 @@ public class HbmParser {
     private List<JpaColumn> parseColumns(final Element parentElement, final String uniqueConstraint) {
         final List<JpaColumn> jpaColumns = new ArrayList<>();
 
-        final List<Element> columns = Utils.getChildrenByTag(parentElement, Tags.TAG_COLUMN);
+        final List<Element> columns = DomUtils.getChildrenByTag(parentElement, Tags.TAG_COLUMN);
         for (final Element columnElement : columns) {
             final JpaColumn jpaColumn = parseProperty(parentElement, uniqueConstraint);
 
@@ -344,7 +346,7 @@ public class HbmParser {
     }
 
     private void parseNaturalIds(final Element element, final JpaEntity entityDef) {
-        final List<Element> naturalIdElements = Utils.getChildrenByTag(element, Tags.TAG_NATURAL_ID);
+        final List<Element> naturalIdElements = DomUtils.getChildrenByTag(element, Tags.TAG_NATURAL_ID);
         for (final Element naturalIdElement : naturalIdElements) {
             final String mutable = naturalIdElement.getAttribute(Attributes.ATTR_MUTABLE);
             final JpaColumn.NaturalId naturalId = "true".equals(mutable) ?
@@ -364,7 +366,7 @@ public class HbmParser {
 
     private void parseRelationships(final JpaRelationship collectionRelationship, final Element element,
             final JpaEntity entityDef, final String uniqueConstraintName) {
-        final List<Element> manyToOneElements = Utils.getChildrenByTag(element, Tags.TAG_MANY_TO_ONE);
+        final List<Element> manyToOneElements = DomUtils.getChildrenByTag(element, Tags.TAG_MANY_TO_ONE);
         for (final Element relationshipElement : manyToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
             relationship.setType(JpaRelationship.Type.ManyToOne);
@@ -372,7 +374,7 @@ public class HbmParser {
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
-        final List<Element> oneToOneElements = Utils.getChildrenByTag(element, Tags.TAG_ONE_TO_ONE);
+        final List<Element> oneToOneElements = DomUtils.getChildrenByTag(element, Tags.TAG_ONE_TO_ONE);
         for (final Element relationshipElement : oneToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
             relationship.setType(JpaRelationship.Type.OneToOne);
@@ -387,13 +389,13 @@ public class HbmParser {
             }
         }
 
-        final List<Element> oneToManyElements = Utils.getChildrenByTag(element, Tags.TAG_ONE_TO_MANY);
+        final List<Element> oneToManyElements = DomUtils.getChildrenByTag(element, Tags.TAG_ONE_TO_MANY);
         for (final Element relationshipElement : oneToManyElements) {
             collectionRelationship.setType(JpaRelationship.Type.OneToMany);
             parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
-        final List<Element> manyToManyElements = Utils.getChildrenByTag(element, Tags.TAG_MANY_TO_MANY);
+        final List<Element> manyToManyElements = DomUtils.getChildrenByTag(element, Tags.TAG_MANY_TO_MANY);
         for (final Element relationshipElement : manyToManyElements) {
             collectionRelationship.setType(JpaRelationship.Type.ManyToMany);
             parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
@@ -460,22 +462,22 @@ public class HbmParser {
     }
 
     private void parseCollections(final Element element, final JpaEntity entityDef) {
-        List<Element> collectionElements = Utils.getChildrenByTag(element, Tags.TAG_SET);
+        List<Element> collectionElements = DomUtils.getChildrenByTag(element, Tags.TAG_SET);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_SET);
         }
 
-        collectionElements = Utils.getChildrenByTag(element, Tags.TAG_LIST);
+        collectionElements = DomUtils.getChildrenByTag(element, Tags.TAG_LIST);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_LIST);
         }
 
-        collectionElements = Utils.getChildrenByTag(element, Tags.TAG_BAG);
+        collectionElements = DomUtils.getChildrenByTag(element, Tags.TAG_BAG);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_BAG);
         }
 
-        collectionElements = Utils.getChildrenByTag(element, Tags.TAG_MAP);
+        collectionElements = DomUtils.getChildrenByTag(element, Tags.TAG_MAP);
         for (final Element collectionElement : collectionElements) {
             parseCollection(collectionElement, entityDef, Tags.TAG_MAP);
         }
@@ -497,7 +499,7 @@ public class HbmParser {
             relationship.setFetch("false".equals(collectionElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
         }
 
-        final Element keyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_KEY);
+        final Element keyElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_KEY);
         if (keyElement != null) {
             final JpaColumn keyColumn;
 
@@ -515,16 +517,16 @@ public class HbmParser {
             relationship.addReferencedColumn(keyColumn);
         }
 
-        final Element mapKeyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_MAP_KEY);
+        final Element mapKeyElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_MAP_KEY);
         if (mapKeyElement != null) {
             final JpaColumn keyColumn = relationship.getReferencedColumns().get(0);
-            keyColumn.setType(Utils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_TYPE)));
+            keyColumn.setType(HibernateUtils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_TYPE)));
             keyColumn.setName(mapKeyElement.getAttribute(Attributes.ATTR_COLUMN));
         }
 
-        final Element compositeMapkeyElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_COMPOSITE_MAP_KEY);
+        final Element compositeMapkeyElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_COMPOSITE_MAP_KEY);
         if (compositeMapkeyElement != null) {
-            final List<Element> keyProperties = Utils.getChildrenByTag(compositeMapkeyElement, Tags.TAG_KEY_PROPERTY);
+            final List<Element> keyProperties = DomUtils.getChildrenByTag(compositeMapkeyElement, Tags.TAG_KEY_PROPERTY);
             for (final Element keyProperty : keyProperties) {
                 final JpaColumn keyColumn = new JpaColumn();
                 keyColumn.setType(compositeMapkeyElement.getAttribute(Attributes.ATTR_CLASS));
@@ -539,14 +541,14 @@ public class HbmParser {
 
         relationship.setOrderColumn(collectionElement.getAttribute(Attributes.ATTR_ORDER_BY));
 
-        final Element indexElement = Utils.getFirstChildByTag(collectionElement, Tags.TAG_LIST_INDEX);
+        final Element indexElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_LIST_INDEX);
         if (indexElement != null) {
             relationship.setOrderColumn(indexElement.getAttribute(Attributes.ATTR_COLUMN));
         }
     }
 
     private void parseEmbeddedFields(final Element element, final JpaEntity entityDef) {
-        final List<Element> componentElements = Utils.getChildrenByTag(element, Tags.TAG_COMPONENT);
+        final List<Element> componentElements = DomUtils.getChildrenByTag(element, Tags.TAG_COMPONENT);
         for (final Element componentElement : componentElements) {
             final JpaEntity embeddedField = new JpaEntity();
             embeddedField.setParentClass(componentElement.getAttribute(Attributes.ATTR_NAME));
@@ -559,7 +561,7 @@ public class HbmParser {
     }
 
     private void parseQueries(final Element root, final JpaEntity jpaEntity) {
-        final List<Element> queries = Utils.getChildrenByTag(root, Tags.TAG_QUERY);
+        final List<Element> queries = DomUtils.getChildrenByTag(root, Tags.TAG_QUERY);
         for (final Element query : queries) {
             final JpaNamedQuery namedQuery = new JpaNamedQuery();
             namedQuery.setName(query.getAttribute(Attributes.ATTR_NAME));
@@ -567,7 +569,7 @@ public class HbmParser {
             jpaEntity.addNamedQuery(namedQuery);
         }
 
-        final List<Element> sqlQueries = Utils.getChildrenByTag(root, Tags.TAG_SQL_QUERY);
+        final List<Element> sqlQueries = DomUtils.getChildrenByTag(root, Tags.TAG_SQL_QUERY);
         for (final Element sqlQuery : sqlQueries) {
             final JpaNamedQuery namedQuery = new JpaNamedQuery();
             namedQuery.setName(sqlQuery.getAttribute(Attributes.ATTR_NAME));
@@ -579,7 +581,7 @@ public class HbmParser {
     }
 
     private void parseQueryReturnColumns(final Element element, final JpaNamedQuery namedQuery) {
-        final List<Element> returnScalarElements = Utils.getChildrenByTag(element, Tags.TAG_RETURN_SCALAR);
+        final List<Element> returnScalarElements = DomUtils.getChildrenByTag(element, Tags.TAG_RETURN_SCALAR);
         for (final Element returnScalarElement : returnScalarElements) {
             final JpaColumn returnColumn = new JpaColumn();
             returnColumn.setColumnName(returnScalarElement.getAttribute(Attributes.ATTR_COLUMN));
@@ -624,7 +626,7 @@ public class HbmParser {
             }
         }
 
-        final List<Element> children = Utils.getChildrenByTag(parent, null);
+        final List<Element> children = DomUtils.getChildrenByTag(parent, null);
         for (final Element child : children) {
             checkMissingTagAttributeImplementations(child);
         }

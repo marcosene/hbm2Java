@@ -1,4 +1,4 @@
-package com.devtools.definition;
+package com.devtools.model.jpa;
 
 import lombok.Getter;
 
@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import com.devtools.Utils;
+import com.devtools.utils.Utils;
 
 @Getter
 public abstract class JpaAnnotation {

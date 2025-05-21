@@ -1,4 +1,4 @@
-package com.devtools.processors;
+package com.devtools.processing;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -7,13 +7,14 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.devtools.Utils;
-import com.devtools.definition.JpaColumn;
-import com.devtools.definition.JpaEntity;
-import com.devtools.definition.JpaNamedQuery;
-import com.devtools.definition.JpaPrimaryKey;
-import com.devtools.definition.JpaRelationship;
-import com.devtools.definition.Tags;
+import com.devtools.utils.Utils;
+import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
+import com.devtools.model.jpa.JpaNamedQuery;
+import com.devtools.model.jpa.JpaPrimaryKey;
+import com.devtools.model.jpa.JpaRelationship;
+import com.devtools.model.hbm.Tags;
+import com.devtools.utils.HibernateUtils;
 
 public class AnnotationBuilder {
 
@@ -130,7 +131,8 @@ public class AnnotationBuilder {
                 discriminatorAnnotation.append(jpaEntity.getDiscriminator().getColumn()).append("\"");
                 if (jpaEntity.getDiscriminator().getType() != null &&
                         !"string".equals(jpaEntity.getDiscriminator().getType())) {
-                    discriminatorAnnotation.append(", type = ").append(Utils.getDiscriminatorType(jpaEntity.getDiscriminator().getType()));
+                    discriminatorAnnotation.append(", type = ").append(
+                            HibernateUtils.getDiscriminatorType(jpaEntity.getDiscriminator().getType()));
                 }
                 if (jpaEntity.getDiscriminator().getLength() != 31) {
                     discriminatorAnnotation.append(", length = ").append(jpaEntity.getDiscriminator().getLength());
@@ -403,7 +405,7 @@ public class AnnotationBuilder {
                     "EAGER" : "LAZY";
 
             // Cascade Types
-            final String cascadeTypes = Utils.convertCascadeTypes(relationship.getCascade());
+            final String cascadeTypes = HibernateUtils.convertCascadeTypes(relationship.getCascade());
             final StringBuilder cascade = new StringBuilder();
             if (!cascadeTypes.isEmpty()) {
                 cascade.append("cascade = {").append(cascadeTypes).append("}, ");
@@ -615,7 +617,7 @@ public class AnnotationBuilder {
                             annotation.append("            @javax.persistence.ColumnResult(name = \"").append(column.getColumnName())
                                     .append(
                                             "\",");
-                            annotation.append(" type = ").append(Utils.mapHibernateTypeToJava(column.getType())).append(
+                            annotation.append(" type = ").append(HibernateUtils.mapHibernateTypeToJava(column.getType())).append(
                                     ".class),\n");
                         }
                         annotation.append("        }),\n");

@@ -1,4 +1,4 @@
-package com.devtools.processors;
+package com.devtools.processing;
 
 import java.io.File;
 import java.io.IOException;
@@ -10,7 +10,7 @@ import java.util.List;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.devtools.definition.JpaEntity;
+import com.devtools.model.jpa.JpaEntity;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.StaticJavaParser;
@@ -21,9 +21,9 @@ import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 
-public class EntityReplacer {
+public class AnnotationApplier {
 
-    private static final Log LOG = LogFactory.getLog(EntityReplacer.class);
+    private static final Log LOG = LogFactory.getLog(AnnotationApplier.class);
 
     private static final JavaParser JAVA_PARSER = new JavaParser();
 

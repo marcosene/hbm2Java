@@ -1,4 +1,4 @@
-package com.devtools.processors;
+package com.devtools.processing;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,11 +13,12 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.devtools.Utils;
-import com.devtools.definition.JpaColumn;
-import com.devtools.definition.JpaEntity;
-import com.devtools.definition.JpaRelationship;
-import com.devtools.definition.Tags;
+import com.devtools.utils.Utils;
+import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
+import com.devtools.model.jpa.JpaRelationship;
+import com.devtools.model.hbm.Tags;
+import com.devtools.utils.HibernateUtils;
 
 public class EntityGenerator {
 
@@ -51,7 +52,7 @@ public class EntityGenerator {
         // Close the class definition
         entityCode.append("}\n");
 
-        Utils.writeEntity(outputFolder + File.separator + entityDef.getClassName() + ".java", entityCode);
+        Utils.writeFile(outputFolder + File.separator + entityDef.getClassName() + ".new.java", entityCode);
     }
 
     private void generateHeaders(final JpaEntity entityDef, final StringBuilder entityCode) {
@@ -73,7 +74,7 @@ public class EntityGenerator {
 
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
             // Add to imports if it's not a native type
-            if (Utils.isCustomType(Utils.getSimpleClass(relationship.getTargetEntity()))) {
+            if (HibernateUtils.isCustomType(Utils.getSimpleClass(relationship.getTargetEntity()))) {
                 importClasses.add(relationship.getTargetEntity());
             }
 
@@ -94,7 +95,7 @@ public class EntityGenerator {
     private static void getColumnImportClasses(final List<JpaColumn> columns, final Set<String> importClasses) {
         for (final JpaColumn column : columns) {
             // Add to imports if it's not a native type
-            if (column.getType() != null && Utils.isCustomType(Utils.mapHibernateTypeToJava(column.getType(false)))) {
+            if (column.getType() != null && HibernateUtils.isCustomType(HibernateUtils.mapHibernateTypeToJava(column.getType(false)))) {
                 importClasses.add(column.getType(false));
             }
             for (final Map.Entry<String, String> entry : column.getTypeParams().entrySet()) {
@@ -139,7 +140,7 @@ public class EntityGenerator {
             for (final String annotation : col.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
-            entityCode.append("    private ").append(Utils.getSimpleClass(Utils.mapHibernateTypeToJava(col.getType())))
+            entityCode.append("    private ").append(Utils.getSimpleClass(HibernateUtils.mapHibernateTypeToJava(col.getType())))
                     .append(" ").append(col.getName()).append(";\n\n");
         }
     }
@@ -242,7 +243,7 @@ public class EntityGenerator {
                     prePersistCode.append("    protected void onPrePersist() {\n");
                 }
 
-                final String columnType = Utils.mapHibernateTypeToJava(jpaColumn.getType());
+                final String columnType = HibernateUtils.mapHibernateTypeToJava(jpaColumn.getType());
                 prePersistCode.append("        if (this.").append(jpaColumn.getName()).append(" == null) {\n");
                 prePersistCode.append("            this.").append(jpaColumn.getName()).append(" = ");
                 if ("Boolean".equals(columnType)) {

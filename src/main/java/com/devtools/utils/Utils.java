@@ -1,115 +1,22 @@
-package com.devtools;
+package com.devtools.utils;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Serializable;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.joda.time.LocalDate;
-import org.joda.time.LocalDateTime;
-import org.joda.time.LocalTime;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
 public interface Utils {
 
     Log LOG = LogFactory.getLog(Utils.class);
-
-    static List<Element> getChildrenByTag(final Element parentElement, final String tagName) {
-        final List<Element> matchingChildren = new ArrayList<>();
-
-        // Get all direct children of the parent element
-        final NodeList children = parentElement.getChildNodes();
-
-        // Iterate through the NodeList
-        for (int i = 0; i < children.getLength(); i++) {
-            final Node childNode = children.item(i);
-
-            // Check if the child node is an Element node (Node.ELEMENT_NODE)
-            // This filters out text nodes, comments, processing instructions, etc.
-            if (childNode.getNodeType() == Node.ELEMENT_NODE) {
-                final Element childElement = (Element) childNode; // Cast to Element
-
-                // Check if the element has the desired tag name
-                if (tagName == null || childElement.getTagName().equals(tagName)) {
-                    matchingChildren.add(childElement);
-                }
-            }
-        }
-
-        return matchingChildren;
-    }
-
-    static Element getFirstChildByTag(final Element parentElement, final String tagName) {
-        final List<Element> elements = getChildrenByTag(parentElement, tagName);
-        if (elements.isEmpty()) {
-            return null;
-        }
-        return elements.get(0);
-    }
-
-    static String mapHibernateTypeToJava(final String hibernateType) {
-        if (hibernateType == null) {
-            return null;
-        }
-        return switch (hibernateType.toLowerCase()) {
-            case "string", "text", "character", "char" -> String.class.getSimpleName();
-            case "integer", "int" -> Integer.class.getSimpleName();
-            case "long", "big_integer" -> Long.class.getSimpleName();
-            case "short" -> Short.class.getSimpleName();
-            case "byte" -> Byte.class.getSimpleName();
-            case "boolean", "yes_no", "numeric_boolean" -> Boolean.class.getSimpleName();
-            case "double", "float", "big_decimal", "decimal" -> Double.class.getSimpleName();
-            case "date", "timestamp", "time" -> Date.class.getSimpleName();
-            case "localdate" -> LocalDate.class.getCanonicalName();
-            case "localdatetime" -> LocalDateTime.class.getCanonicalName();
-            case "localtime" -> LocalTime.class.getCanonicalName();
-            case "uuid" -> UUID.class.getSimpleName();
-            case "binary", "blob" -> "byte[]";
-            case "clob" -> String.class.getSimpleName();  // Usually treated as a large String in JPA
-            case "serializable" -> Serializable.class.getSimpleName();
-            case "set", "bag", "list", "map" -> Collection.class.getSimpleName();
-
-            // Fallback for complex or custom types
-            default -> hibernateType.endsWith("UserType") ?
-                    hibernateType.replace("UserType", "") : hibernateType;  // Return as it is for user-defined or custom types
-        };
-    }
-
-    // Helper method to check for native types
-    static boolean isCustomType(final String type) {
-        final Set<String> nativeTypes = new HashSet<>(Arrays.asList(
-                "int", "long", "float", "double", "boolean", "char", "byte", "short", "Short",
-                "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
-                "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
-        ));
-        return !nativeTypes.contains(type);
-    }
-
-    static String getDiscriminatorType(final String type) {
-        return switch (type) {
-            case "string" -> "DiscriminatorType.STRING";
-            case "char" -> "DiscriminatorType.CHAR";
-            case "int" -> "DiscriminatorType.INTEGER";
-            default -> throw new IllegalStateException("Unexpected discriminator type: " + type);
-        };
-    }
 
     static String lowercaseUntilLastUpper(final String input) {
         final int length = input.length();
@@ -131,51 +38,6 @@ public interface Utils {
 
         // Return the original string if no uppercase sequence was found
         return input;
-    }
-
-    static String convertCascadeTypes(final String cascade) {
-        final StringBuilder cascadeTypes = new StringBuilder();
-
-        if (StringUtils.isNotBlank(cascade)) {
-            final String[] cascadeArray = cascade.split(",");
-            for (final String cascadeType : cascadeArray) {
-                // Convert the Hibernate cascade value to JPA CascadeType equivalent
-                switch (cascadeType.trim()) {
-                    case "save-update":
-                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
-                        break;
-                    case "delete":
-                        cascadeTypes.append("javax.persistence.CascadeType.REMOVE, ");
-                        break;
-                    case "all":
-                        cascadeTypes.append("javax.persistence.CascadeType.ALL, ");
-                        break;
-                    case "all-delete-orphan":
-                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.REMOVE, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.DETACH, ");
-                        break;
-                    case "save":
-                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
-                        break;
-                    case "update":
-                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
-                        break;
-                    default:
-                        // Handle unknown cascade types if necessary
-                        break;
-                }
-            }
-
-            // Remove the trailing comma and space
-            if (!cascadeTypes.isEmpty()) {
-                cascadeTypes.setLength(cascadeTypes.length() - 2);
-            }
-        }
-
-        return cascadeTypes.toString();
     }
 
     static String getFileNameNoExtensions(final String absoluteFilename) {
@@ -229,41 +91,43 @@ public interface Utils {
         return camelCaseBuilder.toString();
     }
 
-    static void writeEntity(final String filename, final StringBuilder entityCode)
+    static void writeFile(final String filename, final StringBuilder fileContent)
             throws IOException {
         final File outputFile = new File(filename);
         try (final BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
-            writer.write(entityCode.toString());
+            writer.write(fileContent.toString());
         }
 
-        LOG.info("Entity successfully written to " + filename);
+        LOG.info("Successfully generated " + filename);
     }
 
     static boolean createFolder(final String path) {
         final File folder = new File(path);
-        // Check if the outputFolder exists
-        if (!folder.exists()) {
-            // If it doesn't exist, try to create it
-            if (folder.mkdirs()) {
-                LOG.info("Folder created successfully: " + path);
-            } else {
-                LOG.error("Failed to create folder: " + path);
-                return true;
+
+        if (folder.exists()) {
+            if (!folder.isDirectory()) {
+                LOG.error(path + " exists but is not a directory.");
+                return true; // Returning true to indicate failure
             }
-        } else if (!folder.isDirectory()) {
-            LOG.error(path + " is not a directory.");
-            return true;
+            return false; // No need to create, it already exists
         }
-        return false;
+
+        // Try creating the directory
+        if (folder.mkdirs()) {
+            LOG.info("Folder created successfully: " + path);
+            return false; // Successfully created
+        } else {
+            LOG.error("Failed to create folder: " + path);
+            return true; // Failure in folder creation
+        }
     }
 
     static String getSimpleClass(final String fullClassName) {
-        if (fullClassName == null) {
+        if (fullClassName == null || fullClassName.isEmpty()) {
             return null;
         }
-        return fullClassName.contains(".")
-                ? fullClassName.substring(fullClassName.lastIndexOf(".") + 1)
-                : fullClassName;
+        final int lastDotIndex = fullClassName.lastIndexOf('.');
+        return (lastDotIndex != -1) ? fullClassName.substring(lastDotIndex + 1) : fullClassName;
     }
 
     static Set<String> extractFullyQualifiedClassNames(final String input) {

@@ -1,4 +1,4 @@
-package com.devtools.definition;
+package com.devtools.model.jpa;
 
 import lombok.Getter;
 import lombok.Setter;
