@@ -22,6 +22,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
+import com.devtools.model.jpa.JpaDiscriminator;
 import com.devtools.utils.Utils;
 import com.devtools.model.hbm.Attributes;
 import com.devtools.model.jpa.JpaBase;
@@ -45,12 +46,15 @@ public class HbmParser {
 
         parseClasses(root, jpaBase, defaultCascade);
 
-        final JpaEntity queriesEntity = new JpaEntity();
-        parseQueries(root, queriesEntity);
-        if (!queriesEntity.getNamedQueries().isEmpty()) {
-            final String fileName = Utils.getFileNameNoExtensions(filePath);
-            queriesEntity.setClassName(fileName);
-            jpaBase.addEntity(queriesEntity);
+        // Check for a hbm.xml file only with queries (no entities)
+        if (jpaBase.getEntities().isEmpty()) {
+            final JpaEntity queriesEntity = new JpaEntity();
+            parseQueries(root, queriesEntity);
+            if (!queriesEntity.getNamedQueries().isEmpty()) {
+                final String fileName = Utils.getFileNameNoExtensions(filePath);
+                queriesEntity.setClassName(fileName);
+                jpaBase.addEntity(queriesEntity);
+            }
         }
 
         checkMissingTagAttributeImplementations(root);
@@ -124,7 +128,7 @@ public class HbmParser {
             entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
             entityDef.setSecondTable(true);
 
-            parseProperty(joinElement, entityDef);
+            parsePropertyList(joinElement, entityDef);
         }
 
         parseDiscriminator(classElement, entityDef);
@@ -137,7 +141,7 @@ public class HbmParser {
 
         parseProperties(classElement, entityDef);
 
-        parseProperty(classElement, entityDef, true);
+        parsePropertyList(classElement, entityDef, true);
 
         parseRelationships(classElement, entityDef);
 
@@ -145,18 +149,21 @@ public class HbmParser {
 
         parseEmbeddedFields(classElement, entityDef);
 
+        parseQueries(classElement, entityDef);
+
         return entityDef;
     }
 
     private void parseDiscriminator(final Element element, final JpaEntity entityDef) {
         final Element discriminatorElement = DomUtils.getFirstChildByTag(element, Tags.TAG_DISCRIMINATOR);
         if (discriminatorElement != null) {
-            entityDef.getDiscriminator(true).setType(discriminatorElement.getAttribute(Attributes.ATTR_TYPE));
+            final JpaDiscriminator jpaDiscriminator = entityDef.getDiscriminator(true);
+            jpaDiscriminator.setType(discriminatorElement.getAttribute(Attributes.ATTR_TYPE));
 
             final Element columnElement = DomUtils.getFirstChildByTag(discriminatorElement, Tags.TAG_COLUMN);
             if (columnElement != null) {
-                entityDef.getDiscriminator(true).setColumn(columnElement.getAttribute(Attributes.ATTR_NAME));
-                entityDef.getDiscriminator(true).setLength(columnElement.getAttribute(Attributes.ATTR_LENGTH));
+                jpaDiscriminator.setColumn(columnElement.getAttribute(Attributes.ATTR_NAME));
+                jpaDiscriminator.setLength(columnElement.getAttribute(Attributes.ATTR_LENGTH));
             }
         }
     }
@@ -244,29 +251,29 @@ public class HbmParser {
             final boolean unique = Boolean.parseBoolean(propertiesElement.getAttribute(Attributes.ATTR_UNIQUE));
             final String uniqueConstraintName = unique ? propertiesElement.getAttribute(Attributes.ATTR_NAME) : "";
 
-            parseProperty(propertiesElement, entityDef, uniqueConstraintName);
+            parsePropertyList(propertiesElement, entityDef, uniqueConstraintName);
 
             parseRelationships(propertiesElement, entityDef, uniqueConstraintName);
         }
     }
 
-    private void parseProperty(final Element element, final JpaEntity entityDef) {
-        parseProperty(element, entityDef, false);
+    private void parsePropertyList(final Element element, final JpaEntity entityDef) {
+        parsePropertyList(element, entityDef, false);
     }
 
-    private void parseProperty(final Element element, final JpaEntity entityDef, final String uniqueConstraint) {
-        parseProperty(element, entityDef, uniqueConstraint, JpaColumn.NaturalId.NONE, false);
+    private void parsePropertyList(final Element element, final JpaEntity entityDef, final String uniqueConstraint) {
+        parsePropertyList(element, entityDef, uniqueConstraint, JpaColumn.NaturalId.NONE, false);
     }
 
-    private void parseProperty(final Element element, final JpaEntity entityDef, final JpaColumn.NaturalId naturalId) {
-        parseProperty(element, entityDef, null, naturalId, false);
+    private void parsePropertyList(final Element element, final JpaEntity entityDef, final JpaColumn.NaturalId naturalId) {
+        parsePropertyList(element, entityDef, null, naturalId, false);
     }
 
-    private void parseProperty(final Element element, final JpaEntity entityDef, final boolean checkComposite) {
-        parseProperty(element, entityDef, null, JpaColumn.NaturalId.NONE, checkComposite);
+    private void parsePropertyList(final Element element, final JpaEntity entityDef, final boolean checkComposite) {
+        parsePropertyList(element, entityDef, null, JpaColumn.NaturalId.NONE, checkComposite);
     }
 
-    private void parseProperty(final Element element, final JpaEntity entityDef,
+    private void parsePropertyList(final Element element, final JpaEntity entityDef,
             final String uniqueConstraint, final JpaColumn.NaturalId naturalId, final boolean checkComposite) {
         final List<Element> propertyElements = DomUtils.getChildrenByTag(element, Tags.TAG_PROPERTY);
         for (final Element propertyElement : propertyElements) {
@@ -351,7 +358,7 @@ public class HbmParser {
             final String mutable = naturalIdElement.getAttribute(Attributes.ATTR_MUTABLE);
             final JpaColumn.NaturalId naturalId = "true".equals(mutable) ?
                     JpaColumn.NaturalId.MUTABLE : JpaColumn.NaturalId.IMMUTABLE;
-            parseProperty(naturalIdElement, entityDef, naturalId);
+            parsePropertyList(naturalIdElement, entityDef, naturalId);
             parseRelationships(naturalIdElement, entityDef);
         }
     }
@@ -433,7 +440,7 @@ public class HbmParser {
         if (!jpaColumns.isEmpty()) {
             for (final JpaColumn jpaColumn : jpaColumns) {
                 if (StringUtils.isNotBlank(update)) {
-                    jpaColumn.setUpdatable(StringUtils.isBlank(update) || Boolean.parseBoolean(update));
+                    jpaColumn.setUpdatable(Boolean.parseBoolean(update));
                 }
                 if (StringUtils.isNotBlank(notNull)) {
                     jpaColumn.setNullable(!Boolean.parseBoolean(notNull));
@@ -550,11 +557,16 @@ public class HbmParser {
     private void parseEmbeddedFields(final Element element, final JpaEntity entityDef) {
         final List<Element> componentElements = DomUtils.getChildrenByTag(element, Tags.TAG_COMPONENT);
         for (final Element componentElement : componentElements) {
+            final JpaColumn embeddedColumn = new JpaColumn();
+            embeddedColumn.setEmbedded(true);
+            embeddedColumn.setName(componentElement.getAttribute(Attributes.ATTR_NAME));
+            embeddedColumn.setType(componentElement.getAttribute(Attributes.ATTR_CLASS));
+            entityDef.addColumn(embeddedColumn);
+
             final JpaEntity embeddedField = new JpaEntity();
-            embeddedField.setParentClass(componentElement.getAttribute(Attributes.ATTR_NAME));
             embeddedField.setClassName(componentElement.getAttribute(Attributes.ATTR_CLASS));
             embeddedField.setEmbeddable(true);
-            parseProperty(componentElement, embeddedField);
+            parsePropertyList(componentElement, embeddedField);
 
             entityDef.addEmbeddedField(embeddedField);
         }

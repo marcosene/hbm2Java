@@ -29,15 +29,13 @@ public class AnnotationApplier {
 
     public void replace(final JpaEntity entity, final String outputFolder) throws IOException {
 
-        final String fullClassFilename = findClassPath(
-                new File(outputFolder),
-                entity.getClassName());
+        final String fullClassFilename = findClassPath(new File(outputFolder), entity.getClassName());
 
         final Path path;
         try {
              path = Paths.get(fullClassFilename);
         } catch (final Exception e) {
-            LOG.warn("Java class not found for " + fullClassFilename + ", generating a new one");
+            LOG.warn("Java class not found for " + entity.getClassName() + ", generating a new one");
             final EntityGenerator entityGenerator = new EntityGenerator();
             entityGenerator.generate(entity, outputFolder);
             return;
@@ -90,6 +88,11 @@ public class AnnotationApplier {
 
         // Write the modified file back
         Files.write(path, cu.toString().getBytes());
+
+        // Add annotations to the embeddable classes
+        for (final JpaEntity embeddable : entity.getEmbeddedFields()) {
+            replace(embeddable, outputFolder);
+        }
     }
 
     private void addAnnotations(final List<String> newAnnotations, final NodeWithAnnotations<?> node) {

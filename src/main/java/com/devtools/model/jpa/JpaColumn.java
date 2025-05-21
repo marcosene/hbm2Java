@@ -33,6 +33,7 @@ public class JpaColumn extends JpaAnnotation {
     private String defaultValue;
     private String uniqueConstraint = null;
     private boolean composite = false;
+    private boolean embedded = false;
     private boolean inverseJoin = false;
     private NaturalId naturalId = NaturalId.NONE;
     private String columnDefinition;

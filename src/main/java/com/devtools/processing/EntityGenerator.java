@@ -223,12 +223,6 @@ public class EntityGenerator {
     private void generateEmbedded(final JpaEntity entityDef, final StringBuilder entityCode, final String outputFolder)
             throws IOException {
         for (final JpaEntity embeddedField : entityDef.getEmbeddedFields()) {
-            for (final String annotation : embeddedField.getAnnotations()) {
-                entityCode.append("    ").append(annotation).append("\n");
-            }
-            entityCode.append("    private ").append(embeddedField.getClassName())
-                    .append(" ").append(embeddedField.getParentClass()).append(";\n\n");
-
             generate(embeddedField, outputFolder);
         }
     }

@@ -285,13 +285,21 @@ public class AnnotationBuilder {
             if (col.isComposite()) {
                 continue;
             }
+
+            if (col.isEmbedded()) {
+                col.addAnnotation("@javax.persistence.Embedded");
+                continue;
+            }
+
             if (col.isVersion()) {
                 col.addAnnotation("@javax.persistence.Version");
             }
+
             if (col.getNaturalId() != JpaColumn.NaturalId.NONE) {
                 col.addAnnotation("@org.hibernate.annotations.NaturalId" +
                         (col.getNaturalId() == JpaColumn.NaturalId.MUTABLE ? "(mutable = true)" : ""));
             }
+
             if (col.getType() != null && col.getType(false).endsWith("Type")) {
                 final StringBuilder typeAnnotation = new StringBuilder();
                 typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(col.getType(false)).append("\"");
@@ -306,6 +314,7 @@ public class AnnotationBuilder {
                 typeAnnotation.append(")");
                 col.addAnnotation(typeAnnotation.toString());
             }
+
             if (col.isLazy()) {
                 col.addAnnotation("@javax.persistence.Basic(fetch = javax.persistence.FetchType.LAZY)");
             }
@@ -567,9 +576,7 @@ public class AnnotationBuilder {
 
     private void buildEmbedded(final JpaEntity entityDef) {
         for (final JpaEntity embeddedField : entityDef.getEmbeddedFields()) {
-            embeddedField.addAnnotation("@javax.persistence.Embedded");
-
-            buildEntity(embeddedField);
+            build(embeddedField);
         }
     }
 
