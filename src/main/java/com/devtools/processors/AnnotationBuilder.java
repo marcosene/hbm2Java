@@ -8,7 +8,6 @@ import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 
 import com.devtools.Utils;
-import com.devtools.definition.JpaBase;
 import com.devtools.definition.JpaColumn;
 import com.devtools.definition.JpaEntity;
 import com.devtools.definition.JpaNamedQuery;
@@ -18,41 +17,40 @@ import com.devtools.definition.Tags;
 
 public class AnnotationBuilder {
 
-    public void build(final JpaBase jpaBase) {
-        for (final JpaEntity entityDef : jpaBase.getEntities()) {
-            buildQueries(entityDef);
+    public void build(final JpaEntity entityDef) {
 
-            buildNativeQueries(entityDef);
+        buildQueries(entityDef);
 
-            buildEntity(entityDef);
+        buildNativeQueries(entityDef);
 
-            if (entityDef.getPrimaryKey() != null) {
-                // Generate the @Id and @GeneratedValue annotations
-                buildPrimaryKey(entityDef);
-            }
+        buildEntity(entityDef);
 
-            // Add properties with @Column annotations
-            buildColumns(entityDef);
-
-            buildAttributeOverrides(entityDef);
-
-            // Handle relationships (ManyToOne, OneToMany, OneToOne, ManyToMany)
-            buildRelationships(entityDef);
-
-            // Handle Embedded fields and Embeddable classes
-            buildEmbedded(entityDef);
+        if (entityDef.getPrimaryKey() != null) {
+            // Generate the @Id and @GeneratedValue annotations
+            buildPrimaryKey(entityDef);
         }
+
+        // Add properties with @Column annotations
+        buildColumns(entityDef);
+
+        buildAttributeOverrides(entityDef);
+
+        // Handle relationships (ManyToOne, OneToMany, OneToOne, ManyToMany)
+        buildRelationships(entityDef);
+
+        // Handle Embedded fields and Embeddable classes
+        buildEmbedded(entityDef);
     }
 
     private void buildEntity(final JpaEntity jpaEntity) {
         if (jpaEntity.isAbstractClass() && StringUtils.isNotBlank(jpaEntity.getParentClass())) {
-            jpaEntity.addAnnotation("@MappedSuperclass");
+            jpaEntity.addAnnotation("@javax.persistence.MappedSuperclass");
         }
 
         if (jpaEntity.isEmbeddable()) {
-            jpaEntity.addAnnotation("@Embeddable");
+            jpaEntity.addAnnotation("@javax.persistence.Embeddable");
         } else {
-            jpaEntity.addAnnotation("@Entity");
+            jpaEntity.addAnnotation("@javax.persistence.Entity");
         }
 
         if (StringUtils.isNotBlank(jpaEntity.getTable())) {
@@ -61,9 +59,9 @@ public class AnnotationBuilder {
 
             final StringBuilder tableAnnotation = new StringBuilder();
             if (jpaEntity.isSecondTable()) {
-                tableAnnotation.append("@SecondaryTable(name = \"");
+                tableAnnotation.append("@javax.persistence.SecondaryTable(name = \"");
             } else {
-                tableAnnotation.append("@Table(name = \"");
+                tableAnnotation.append("@javax.persistence.Table(name = \"");
             }
             tableAnnotation.append(jpaEntity.getTable()).append("\"");
 
@@ -73,7 +71,7 @@ public class AnnotationBuilder {
             if (!uniqueConstraints.isEmpty()) {
                 tableAnnotation.append(",\n    uniqueConstraints = {\n");
                 for (final Map.Entry<String, StringBuilder> entry : uniqueConstraints.entrySet()) {
-                    tableAnnotation.append("        @UniqueConstraint(name = \"");
+                    tableAnnotation.append("        @javax.persistence.UniqueConstraint(name = \"");
                     tableAnnotation.append(entry.getKey()).append("\", columnNames = {");
                     tableAnnotation.append(entry.getValue()).append("})\n");
                 }
@@ -89,19 +87,19 @@ public class AnnotationBuilder {
         }
 
         if (StringUtils.isNotBlank(jpaEntity.getCacheUsage())) {
-            jpaEntity.addAnnotation("@Cacheable");
+            jpaEntity.addAnnotation("@javax.persistence.Cacheable");
             switch (jpaEntity.getCacheUsage()) {
                 case "read-only":
-                    jpaEntity.addAnnotation("@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)");
+                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_ONLY)");
                     break;
                 case "read-write":
-                    jpaEntity.addAnnotation("@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)");
+                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)");
                     break;
                 case "nonstrict-read-write":
-                    jpaEntity.addAnnotation("@Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)");
+                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)");
                     break;
                 case "transactional":
-                    jpaEntity.addAnnotation("@Cache(usage = CacheConcurrencyStrategy.TRANSACTIONAL)");
+                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.TRANSACTIONAL)");
                     break;
                 default:
                     break;
@@ -121,14 +119,14 @@ public class AnnotationBuilder {
         }
 
         if (jpaEntity.getDiscriminator() != null && StringUtils.isNotBlank(jpaEntity.getDiscriminator().getValue())) {
-            jpaEntity.addAnnotation("@DiscriminatorValue(\"" + jpaEntity.getDiscriminator().getValue() + "\")");
+            jpaEntity.addAnnotation("@javax.persistence.DiscriminatorValue(\"" + jpaEntity.getDiscriminator().getValue() + "\")");
         }
 
         if (StringUtils.isBlank(jpaEntity.getParentClass())) {
             // Handle Discriminator Column
             if (jpaEntity.getDiscriminator() != null && jpaEntity.getDiscriminator().getColumn() != null) {
                 final StringBuilder discriminatorAnnotation = new StringBuilder();
-                discriminatorAnnotation.append("@DiscriminatorColumn(name = \"");
+                discriminatorAnnotation.append("@javax.persistence.DiscriminatorColumn(name = \"");
                 discriminatorAnnotation.append(jpaEntity.getDiscriminator().getColumn()).append("\"");
                 if (jpaEntity.getDiscriminator().getType() != null &&
                         !"string".equals(jpaEntity.getDiscriminator().getType())) {
@@ -139,8 +137,11 @@ public class AnnotationBuilder {
                 }
                 discriminatorAnnotation.append(")");
                 jpaEntity.addAnnotation(discriminatorAnnotation.toString());
-                jpaEntity.addAnnotation("@Inheritance(strategy = InheritanceType.SINGLE_TABLE)");
             }
+        }
+        if (jpaEntity.getInheritance() != null) {
+            jpaEntity.addAnnotation("@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType."
+                    + jpaEntity.getInheritance() + ")");
         }
     }
 
@@ -181,7 +182,7 @@ public class AnnotationBuilder {
 
         final StringBuilder indexes = new StringBuilder();
         for(final Map.Entry<String, List<String>> entry : indexesMap.entrySet()) {
-            indexes.append("        @Index(name = \"").append(entry.getKey()).append("\", columnList = \"")
+            indexes.append("        @javax.persistence.Index(name = \"").append(entry.getKey()).append("\", columnList = \"")
                     .append(String.join(",", entry.getValue())).append("\"),\n");
         }
         return indexes;
@@ -225,13 +226,13 @@ public class AnnotationBuilder {
         final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
 
         if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorType())) {
-            jpaPrimaryKey.addAnnotation("@Id");
+            jpaPrimaryKey.addAnnotation("@javax.persistence.Id");
 
             switch (entityDef.getPrimaryKey().getGeneratorType()) {
             case "SEQUENCE":
                 final StringBuilder sequenceAnnotation = new StringBuilder();
                 String generatorAnnotation = null;
-                sequenceAnnotation.append("@GeneratedValue(strategy = GenerationType.SEQUENCE");
+                sequenceAnnotation.append("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE");
                 if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
                     final String generatorName = entityDef.getPrimaryKey().getGeneratorName();
                     final Integer initialValue = entityDef.getPrimaryKey().getInitialValue();
@@ -241,7 +242,7 @@ public class AnnotationBuilder {
                     // Add the @SequenceGenerator
                     sequenceAnnotation.append(")");
 
-                    generatorAnnotation = "@SequenceGenerator(name = \"gen" + entityDef.getClassName()
+                    generatorAnnotation = "@javax.persistence.SequenceGenerator(name = \"gen" + entityDef.getClassName()
                             + "\", sequenceName = \"" + generatorName + "\""
                             + (initialValue != null ? ", allocationSize = " + allocationSize
                                 + ", initialValue = " + initialValue : "")
@@ -255,26 +256,26 @@ public class AnnotationBuilder {
                 }
                 break;
             case "IDENTITY":
-                jpaPrimaryKey.addAnnotation("@GeneratedValue(strategy = GenerationType.IDENTITY)");
+                jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.IDENTITY)");
                 break;
             case "TABLE":
-                jpaPrimaryKey.addAnnotation("@GeneratedValue(strategy = GenerationType.TABLE)");
+                jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.TABLE)");
                 break;
             case "FOREIGN":
                 break; // it will be defined in the OneToOne
             case "GENERATOR":
                 if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
-                    jpaPrimaryKey.addAnnotation("@GeneratedValue(generator = \"" +
+                    jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(generator = \"" +
                                     entityDef.getPrimaryKey().getGeneratorName() + "\")");
                 }
                 break;
             default:
-                jpaPrimaryKey.addAnnotation("@GeneratedValue(strategy = GenerationType.AUTO)");
+                jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.AUTO)");
                 break;
             }
         }
 
-        jpaPrimaryKey.addAnnotation("@Column(name = \"" + jpaPrimaryKey.getColumnName() + "\")");
+        jpaPrimaryKey.addAnnotation("@javax.persistence.Column(name = \"" + jpaPrimaryKey.getColumnName() + "\")");
     }
 
     private void buildColumns(final JpaEntity entityDef) {
@@ -283,7 +284,7 @@ public class AnnotationBuilder {
                 continue;
             }
             if (col.isVersion()) {
-                col.addAnnotation("@Version");
+                col.addAnnotation("@javax.persistence.Version");
             }
             if (col.getNaturalId() != JpaColumn.NaturalId.NONE) {
                 col.addAnnotation("@org.hibernate.annotations.NaturalId" +
@@ -304,7 +305,7 @@ public class AnnotationBuilder {
                 col.addAnnotation(typeAnnotation.toString());
             }
             if (col.isLazy()) {
-                col.addAnnotation("@Basic(fetch = FetchType.LAZY)");
+                col.addAnnotation("@javax.persistence.Basic(fetch = javax.persistence.FetchType.LAZY)");
             }
 
             col.addAnnotation(buildColumn(entityDef, col));
@@ -317,7 +318,7 @@ public class AnnotationBuilder {
 
     private String buildColumn(final JpaEntity entityDef, final JpaColumn col) {
         final StringBuilder columnAnnotation = new StringBuilder();
-        columnAnnotation.append("@Column(");
+        columnAnnotation.append("@javax.persistence.Column(");
         if (entityDef.isSecondTable()) {
             columnAnnotation.append("table = \"").append(entityDef.getTable()).append("\", ");
         }
@@ -368,10 +369,10 @@ public class AnnotationBuilder {
 
         for (final Map.Entry<String, List<JpaColumn>> entry : attributeOverrides.entrySet()) {
             final StringBuilder columnAnnotation = new StringBuilder();
-            columnAnnotation.append("@AttributeOverrides({\n");
+            columnAnnotation.append("@javax.persistence.AttributeOverrides({\n");
             JpaColumn varColumn = null;
             for (final JpaColumn column : entry.getValue()) {
-                columnAnnotation.append("        @AttributeOverride(name = \"");
+                columnAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
                 columnAnnotation.append(Utils.toCamelCase(column.getColumnName()));
                 columnAnnotation.append("\", column = ");
                 columnAnnotation.append(buildColumn(entityDef, column));
@@ -388,11 +389,11 @@ public class AnnotationBuilder {
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
             if (Tags.TAG_MAP.equals(relationship.getCollectionType()) && relationship.getReferencedColumns() != null) {
                 if (relationship.getReferencedColumns().size() > 1) {
-                    relationship.addAnnotation("@MapKeyClass(" +
+                    relationship.addAnnotation("@javax.persistence.MapKeyClass(" +
                             relationship.getReferencedColumns().get(0).getType() + ".class)");
-                    relationship.addAnnotation("@MapKeyEmbedded");
+                    relationship.addAnnotation("@javax.persistence.MapKeyEmbedded");
                 } else {
-                    relationship.addAnnotation("@MapKeyColumn(name = \"" +
+                    relationship.addAnnotation("@javax.persistence.MapKeyColumn(name = \"" +
                             relationship.getReferencedColumns().get(0).getName() + "\")");
                 }
             }
@@ -414,12 +415,12 @@ public class AnnotationBuilder {
             String joinColumn = "";
             if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
                 final JpaColumn referencedColumn = relationship.getReferencedColumns().get(0);
-                joinColumn = "@JoinColumn(name = \"" + referencedColumn.getColumnName() + "\"" +
+                joinColumn = "@javax.persistence.JoinColumn(name = \"" + referencedColumn.getColumnName() + "\"" +
                         (!referencedColumn.isUpdatable() ? ", updatable = false" : "") +
                         (!referencedColumn.isNullable() ? ", nullable = false" : "") +
                         (referencedColumn.isUnique() ? ", unique = true" : "") +
                         (StringUtils.isNotBlank(referencedColumn.getForeignKey()) ?
-                                ", foreignKey = @ForeignKey(name = \"" +
+                                ", foreignKey = @javax.persistence.ForeignKey(name = \"" +
                                         referencedColumn.getForeignKey() + "\")" : "") +
                         ")";
             }
@@ -430,10 +431,10 @@ public class AnnotationBuilder {
             switch (relationship.getType()) {
                 case ManyToOne:
                     if (StringUtils.isNotBlank(relationship.getAccess())) {
-                        relationship.addAnnotation("@Access(AccessType." +
+                        relationship.addAnnotation("@javax.persistence.Access(javax.persistence.AccessType." +
                                 relationship.getAccess().toUpperCase() + ")");
                     }
-                    relationshipAnnotation.append("@ManyToOne(fetch = FetchType.").append(fetchType).append(", ");
+                    relationshipAnnotation.append("@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
                     }
@@ -448,10 +449,10 @@ public class AnnotationBuilder {
                     break;
 
                 case OneToMany:
-                    relationshipAnnotation.append("@OneToMany(");
+                    relationshipAnnotation.append("@javax.persistence.OneToMany(");
                     // LAZY fetch is default for OneToMany
                     if (!"LAZY".equals(fetchType)) {
-                        relationshipAnnotation.append("fetch = FetchType.").append(fetchType).append(", ");
+                        relationshipAnnotation.append("fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
                     }
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
@@ -477,11 +478,11 @@ public class AnnotationBuilder {
                     if (entityDef.getPrimaryKey() != null &&
                             "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType()) &&
                             relationship.getName().equals(entityDef.getPrimaryKey().getGeneratorName())) {
-                        relationship.addAnnotation("@MapsId");
+                        relationship.addAnnotation("@javax.persistence.MapsId");
                     }
-                    relationshipAnnotation.append("@OneToOne(");
+                    relationshipAnnotation.append("@javax.persistence.OneToOne(");
                     if ("LAZY".equals(fetchType)) {
-                        relationshipAnnotation.append("fetch = FetchType.").append(fetchType).append(", ");
+                        relationshipAnnotation.append("fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
                     }
                     if (!relationship.isOptional()) {
                         relationshipAnnotation.append("optional = false, ");
@@ -503,7 +504,7 @@ public class AnnotationBuilder {
                     break;
 
                 case ManyToMany:
-                    relationshipAnnotation.append("@ManyToMany(fetch = FetchType.").append(fetchType).append(", ");
+                    relationshipAnnotation.append("@javax.persistence.ManyToMany(fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
                     relationshipAnnotation.append(StringUtils.isNotBlank(cascade) ? cascade : "");
                     relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-2); // remove last comma
                     relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-1); // remove last space
@@ -512,20 +513,20 @@ public class AnnotationBuilder {
 
                     if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
                         final StringBuilder joinAnnotation = new StringBuilder();
-                        joinAnnotation.append("@JoinTable(\n");
+                        joinAnnotation.append("@javax.persistence.JoinTable(\n");
                         joinAnnotation.append("        name = \"").append(relationship.getTable()).append("\",\n");
 
                         if (relationship.getReferencedColumns().stream().anyMatch(jpaColumn -> !jpaColumn.isInverseJoin())) {
                             joinAnnotation.append("        joinColumns = {\n");
                             for (final JpaColumn column : relationship.getReferencedColumns()) {
                                 if (!column.isInverseJoin()) {
-                                    joinAnnotation.append("            @JoinColumn(name = \"").append(
+                                    joinAnnotation.append("            @javax.persistence.JoinColumn(name = \"").append(
                                                     column.getColumnName())
                                             .append("\"");
                                     joinAnnotation.append(!column.isUpdatable() ? ", updatable = false" : "")
                                             .append(!column.isNullable() ? ", nullable = false" : "")
                                             .append(StringUtils.isNotBlank(column.getForeignKey()) ?
-                                                    ", foreignKey = @ForeignKey(name = \"" + column.getForeignKey()
+                                                    ", foreignKey = @javax.persistence.ForeignKey(name = \"" + column.getForeignKey()
                                                             + "\")" : "");
                                     joinAnnotation.append(")\n");
                                 }
@@ -537,13 +538,13 @@ public class AnnotationBuilder {
                             joinAnnotation.append("        inverseJoinColumns = {\n");
                             for (final JpaColumn column : relationship.getReferencedColumns()) {
                                 if (column.isInverseJoin()) {
-                                    joinAnnotation.append("            @JoinColumn(name = \"").append(
+                                    joinAnnotation.append("            @javax.persistence.JoinColumn(name = \"").append(
                                                     column.getColumnName())
                                             .append("\"");
                                     joinAnnotation.append(!column.isUpdatable() ? ", updatable = false" : "")
                                             .append(!column.isNullable() ? ", nullable = false" : "")
                                             .append(StringUtils.isNotBlank(column.getForeignKey()) ?
-                                                    ", foreignKey = @ForeignKey(name = \"" + column.getForeignKey()
+                                                    ", foreignKey = @javax.persistence.ForeignKey(name = \"" + column.getForeignKey()
                                                             + "\")" : "");
                                     joinAnnotation.append(")\n");
                                 }
@@ -557,14 +558,14 @@ public class AnnotationBuilder {
             }
 
             if (StringUtils.isNotBlank(relationship.getOrderColumn())) {
-                relationship.addAnnotation("@OrderBy(\"" + relationship.getOrderColumn() + "\")");
+                relationship.addAnnotation("@javax.persistence.OrderBy(\"" + relationship.getOrderColumn() + "\")");
             }
         }
     }
 
     private void buildEmbedded(final JpaEntity entityDef) {
         for (final JpaEntity embeddedField : entityDef.getEmbeddedFields()) {
-            embeddedField.addAnnotation("@Embedded");
+            embeddedField.addAnnotation("@javax.persistence.Embedded");
 
             buildEntity(embeddedField);
         }
@@ -573,10 +574,10 @@ public class AnnotationBuilder {
     private void buildQueries(final JpaEntity jpaEntity) {
         if (!jpaEntity.getNamedQueries().stream().filter(jpaNamedQuery -> !jpaNamedQuery.isNativeQuery()).toList().isEmpty()) {
             final StringBuilder queryAnnotation = new StringBuilder();
-            queryAnnotation.append("@NamedQueries({\n");
+            queryAnnotation.append("@javax.persistence.NamedQueries({\n");
             for (final JpaNamedQuery namedQuery : jpaEntity.getNamedQueries()) {
                 if (!namedQuery.isNativeQuery()) {
-                    queryAnnotation.append("    @NamedQuery(name = \"").append(namedQuery.getName()).append("\",\n");
+                    queryAnnotation.append("    @javax.persistence.NamedQuery(name = \"").append(namedQuery.getName()).append("\",\n");
                     queryAnnotation.append("        query = \"\"\"").append(namedQuery.getQuery().trim()).append(
                             "\"\"\"),\n\n");
                 }
@@ -589,10 +590,10 @@ public class AnnotationBuilder {
     private void buildNativeQueries(final JpaEntity jpaEntity) {
         if (!jpaEntity.getNamedQueries().stream().filter(JpaNamedQuery::isNativeQuery).toList().isEmpty()) {
             StringBuilder annotation = new StringBuilder();
-            annotation.append("@NamedNativeQueries({\n");
+            annotation.append("@javax.persistence.NamedNativeQueries({\n");
             for (final JpaNamedQuery namedQuery : jpaEntity.getNamedQueries()) {
                 if (namedQuery.isNativeQuery()) {
-                    annotation.append("    @NamedNativeQuery(name = \"").append(namedQuery.getName()).append("\",\n");
+                    annotation.append("    @javax.persistence.NamedNativeQuery(name = \"").append(namedQuery.getName()).append("\",\n");
                     annotation.append("        query = \"\"\"").append(namedQuery.getQuery().trim()).append(
                             "\"\"\",\n");
                     annotation.append("        resultSetMapping = \"").append(namedQuery.getName()).append("\"),\n\n");
@@ -603,15 +604,15 @@ public class AnnotationBuilder {
 
             if (!jpaEntity.getNamedQueries().stream().filter(JpaNamedQuery::isNativeQuery).toList().isEmpty()) {
                 annotation = new StringBuilder();
-                annotation.append("@SqlResultSetMappings({\n");
+                annotation.append("@javax.persistence.SqlResultSetMappings({\n");
                 for (final JpaNamedQuery namedQuery : jpaEntity.getNamedQueries()) {
                     if (namedQuery.isNativeQuery()) {
-                        annotation.append("    @SqlResultSetMapping(name = \"").append(namedQuery.getName()).append(
+                        annotation.append("    @javax.persistence.SqlResultSetMapping(name = \"").append(namedQuery.getName()).append(
                                 "\",\n");
                         annotation.append("        columns = {\n");
 
                         for (final JpaColumn column : namedQuery.getReturnColumns()) {
-                            annotation.append("            @ColumnResult(name = \"").append(column.getColumnName())
+                            annotation.append("            @javax.persistence.ColumnResult(name = \"").append(column.getColumnName())
                                     .append(
                                             "\",");
                             annotation.append(" type = ").append(Utils.mapHibernateTypeToJava(column.getType())).append(

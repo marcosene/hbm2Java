@@ -16,6 +16,7 @@ public class JpaEntity extends JpaAnnotation {
     private String className;
     private String table;
     private String parentClass;
+    private String inheritance;
     private JpaDiscriminator discriminator;
     private boolean dynamicInsert = false;
     private boolean dynamicUpdate = false;

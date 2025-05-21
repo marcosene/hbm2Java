@@ -77,19 +77,22 @@ public class HbmParser {
     private void parseClasses(final Element root, final JpaBase jpaBase, final String defaultCascade) {
         final List<Element> classElements = Utils.getChildrenByTag(root, Tags.TAG_CLASS);
         for (final Element classElement : classElements) {
-            jpaBase.addEntity(parseEntity(classElement, defaultCascade));
+            final JpaEntity jpaEntity = parseEntity(classElement, defaultCascade);
+            jpaBase.addEntity(jpaEntity);
             parseClasses(classElement, jpaBase, defaultCascade);
         }
 
         final List<Element> subclassElements = Utils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
         for (final Element subclassElement : subclassElements) {
-            jpaBase.addEntity(parseEntity(subclassElement, defaultCascade));
+            final JpaEntity jpaEntity = parseEntity(subclassElement, defaultCascade);
+            jpaBase.addEntity(jpaEntity);
             parseClasses(subclassElement, jpaBase, defaultCascade);
         }
 
         final List<Element> unionSubclassElements = Utils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
         for (final Element unionSubclassElement : unionSubclassElements) {
-            jpaBase.addEntity(parseEntity(unionSubclassElement, defaultCascade));
+            final JpaEntity jpaEntity = parseEntity(unionSubclassElement, defaultCascade);
+            jpaBase.addEntity(jpaEntity);
             parseClasses(unionSubclassElement, jpaBase, defaultCascade);
         }
     }

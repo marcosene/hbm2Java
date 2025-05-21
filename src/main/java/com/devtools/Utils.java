@@ -14,6 +14,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -140,26 +142,26 @@ public interface Utils {
                 // Convert the Hibernate cascade value to JPA CascadeType equivalent
                 switch (cascadeType.trim()) {
                     case "save-update":
-                        cascadeTypes.append("CascadeType.PERSIST, ");
-                        cascadeTypes.append("CascadeType.MERGE, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
                         break;
                     case "delete":
-                        cascadeTypes.append("CascadeType.REMOVE, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.REMOVE, ");
                         break;
                     case "all":
-                        cascadeTypes.append("CascadeType.ALL, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.ALL, ");
                         break;
                     case "all-delete-orphan":
-                        cascadeTypes.append("CascadeType.PERSIST, ");
-                        cascadeTypes.append("CascadeType.MERGE, ");
-                        cascadeTypes.append("CascadeType.REMOVE, ");
-                        cascadeTypes.append("CascadeType.DETACH, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.REMOVE, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.DETACH, ");
                         break;
                     case "save":
-                        cascadeTypes.append("CascadeType.PERSIST, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
                         break;
                     case "update":
-                        cascadeTypes.append("CascadeType.MERGE, ");
+                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
                         break;
                     default:
                         // Handle unknown cascade types if necessary
@@ -262,5 +264,94 @@ public interface Utils {
         return fullClassName.contains(".")
                 ? fullClassName.substring(fullClassName.lastIndexOf(".") + 1)
                 : fullClassName;
+    }
+
+    static Set<String> extractFullyQualifiedClassNames(final String input) {
+        final Set<String> classNames = new HashSet<>();
+
+        // Remove quoted strings (single and double)
+        final String withoutQuotes = input.replaceAll("\"(\\\\.|[^\"\\\\])*\"|'(\\\\.|[^'\\\\])*'", " ");
+
+        // Match fully qualified identifiers: package.name.ClassName or package.name.ClassName.CONSTANT
+        final Pattern pattern = Pattern.compile("((?:[a-zA-Z_$][\\w$]*\\.)+[A-Z][\\w$]*(?:\\.[A-Z_][A-Z_\\d]*)?)");
+
+        final Matcher matcher = pattern.matcher(withoutQuotes);
+
+        while (matcher.find()) {
+            String match = matcher.group(1);
+
+            // If the last part looks like a constant (e.g., ALL_CAPS), remove it
+            final int lastDot = match.lastIndexOf('.');
+            if (lastDot != -1) {
+                final String lastToken = match.substring(lastDot + 1);
+                if (lastToken.matches("[A-Z_][A-Z_\\d]*")) {
+                    match = match.substring(0, lastDot);
+                }
+            }
+
+            classNames.add(match);
+        }
+
+        return classNames;
+    }
+
+    /**
+     * Removes package names from fully qualified Java class names while respecting:
+     * 1) In a constant like "javax.persistence.InheritanceType.SINGLE_TABLE", only the class and constant ("InheritanceType.SINGLE_TABLE") remain.
+     * 2) Text between double quotes is untouched.
+     *
+     * @param input the input string possibly containing fully qualified class names
+     * @return the input string with package names removed from fully qualified names (outside quotes)
+     */
+    static String simplifyClassNames(final String input) {
+        // Split the input on double quotes.
+        // Even-index segments (0, 2, …) are outside quotes; odd-index segments are inside quotes.
+        final String[] parts = input.split("\"", -1);
+        final StringBuilder result = new StringBuilder();
+
+        for (int i = 0; i < parts.length; i++) {
+            if (i % 2 == 0) {
+                // Process parts outside quotes using our replacement method.
+                result.append(simplifyOutsideQuotes(parts[i]));
+            } else {
+                // Reinsert quotes along with the untouched text inside them.
+                result.append("\"").append(parts[i]).append("\"");
+            }
+        }
+        return result.toString();
+    }
+
+    /**
+     * Processes text outside quotes, replacing fully qualified names with their simplified versions.
+     * For example:
+     *   "javax.persistence.Table"  -> "Table"
+     *   "javax.persistence.InheritanceType.SINGLE_TABLE" -> "InheritanceType.SINGLE_TABLE"
+     *
+     * @param s the input text outside of quotes
+     * @return the text with package names removed from fully qualified names
+     */
+    static String simplifyOutsideQuotes(final String s) {
+        // This pattern matches a fully qualified name that:
+        // • Starts with one or more package segments (all lowercase letters) followed by dots.
+        // • Then an uppercase-starting class name (captured in group(1)).
+        // • Optionally, if followed by a dot and an ALL-UPPERCASE (and underscores) token (captured in group(2)), that is considered a constant.
+        final Pattern CLASS_PATTERN = Pattern.compile(
+                "\\b(?:[a-z]+\\.)+([A-Z][A-Za-z0-9_]*)(?:\\.([A-Z][A-Z0-9_]*))?\\b"
+        );
+
+        final Matcher matcher = CLASS_PATTERN.matcher(s);
+        final StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            final String replacement;
+            // If group 2 (the constant) is present, include it in the replacement.
+            if (matcher.group(2) != null) {
+                replacement = matcher.group(1) + "." + matcher.group(2);
+            } else {
+                replacement = matcher.group(1);
+            }
+            matcher.appendReplacement(sb, replacement);
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 }

@@ -14,7 +14,6 @@ import java.util.Set;
 import org.apache.commons.lang3.StringUtils;
 
 import com.devtools.Utils;
-import com.devtools.definition.JpaBase;
 import com.devtools.definition.JpaColumn;
 import com.devtools.definition.JpaEntity;
 import com.devtools.definition.JpaRelationship;
@@ -22,13 +21,7 @@ import com.devtools.definition.Tags;
 
 public class EntityGenerator {
 
-    public void generate(final JpaBase jpaBase, final String outputFolder) throws IOException {
-        for (final JpaEntity entityDef : jpaBase.getEntities()) {
-            generateEntity(outputFolder, entityDef);
-        }
-    }
-
-    private void generateEntity(final String outputFolder, final JpaEntity entityDef) throws IOException {
+    public void generate(final JpaEntity entityDef, final String outputFolder) throws IOException {
         final StringBuilder entityCode = new StringBuilder();
 
         // Add package declaration and imports
@@ -235,7 +228,7 @@ public class EntityGenerator {
             entityCode.append("    private ").append(embeddedField.getClassName())
                     .append(" ").append(embeddedField.getParentClass()).append(";\n\n");
 
-            generateEntity(outputFolder, embeddedField);
+            generate(embeddedField, outputFolder);
         }
     }
 

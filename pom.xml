@@ -16,6 +16,7 @@
 		<commons-lang3.version>3.17.0</commons-lang3.version>
 		<joda-time.version>2.14.0</joda-time.version>
 		<lombok.version>1.18.38</lombok.version>
+		<javaparser-core.version>3.26.4</javaparser-core.version>
 		<slf4j.version>1.7.5</slf4j.version>
 		<log4j.version>2.24.3</log4j.version>
 
@@ -40,6 +41,16 @@
 			<artifactId>lombok</artifactId>
 			<version>${lombok.version}</version>
 			<scope>provided</scope>
+		</dependency>
+		<dependency>
+			<groupId>com.github.javaparser</groupId>
+			<artifactId>javaparser-core</artifactId>
+			<version>${javaparser-core.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.github.javaparser</groupId>
+			<artifactId>javaparser-symbol-solver-core</artifactId>
+			<version>${javaparser-core.version}</version>
 		</dependency>
 
 		<!-- Logging -->
