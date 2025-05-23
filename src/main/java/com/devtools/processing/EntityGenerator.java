@@ -13,12 +13,12 @@ import java.util.Set;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.devtools.utils.Utils;
+import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaColumn;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.model.hbm.Tags;
 import com.devtools.utils.HibernateUtils;
+import com.devtools.utils.Utils;
 
 public class EntityGenerator {
 
@@ -52,7 +52,7 @@ public class EntityGenerator {
         // Close the class definition
         entityCode.append("}\n");
 
-        Utils.writeFile(outputFolder + File.separator + entityDef.getClassName() + ".new.java", entityCode);
+        Utils.writeFile(outputFolder + File.separator + entityDef.getName() + ".new.java", entityCode);
     }
 
     private void generateHeaders(final JpaEntity entityDef, final StringBuilder entityCode) {
@@ -115,7 +115,7 @@ public class EntityGenerator {
         if (entityDef.isAbstractClass()) {
             entityCode.append("abstract ");
         }
-        entityCode.append("class ").append(entityDef.getClassName());
+        entityCode.append("class ").append(entityDef.getName());
 
         if (StringUtils.isNotBlank(entityDef.getParentClass()) && !entityDef.isEmbeddable()) {
             entityCode.append(" extends ").append(entityDef.getParentClass());

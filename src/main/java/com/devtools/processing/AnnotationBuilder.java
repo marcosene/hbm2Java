@@ -7,16 +7,22 @@ import java.util.Map;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.devtools.utils.Utils;
+import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaColumn;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.model.hbm.Tags;
 import com.devtools.utils.HibernateUtils;
+import com.devtools.utils.Utils;
 
 public class AnnotationBuilder {
+
+    private final String outputFolder;
+
+    public AnnotationBuilder(final String outputFolder) {
+        this.outputFolder = outputFolder;
+    }
 
     public void build(final JpaEntity entityDef) {
 
@@ -44,14 +50,15 @@ public class AnnotationBuilder {
     }
 
     private void buildEntity(final JpaEntity jpaEntity) {
-        if (jpaEntity.isAbstractClass() && StringUtils.isNotBlank(jpaEntity.getParentClass())) {
-            jpaEntity.addAnnotation("@javax.persistence.MappedSuperclass");
-        }
 
         if (jpaEntity.isEmbeddable()) {
             jpaEntity.addAnnotation("@javax.persistence.Embeddable");
         } else {
-            jpaEntity.addAnnotation("@javax.persistence.Entity");
+            if (StringUtils.isBlank(jpaEntity.getTable()) && jpaEntity.getDiscriminator() == null) {
+                jpaEntity.addAnnotation("@javax.persistence.MappedSuperclass");
+            } else {
+                jpaEntity.addAnnotation("@javax.persistence.Entity");
+            }
         }
 
         if (StringUtils.isNotBlank(jpaEntity.getTable())) {
@@ -74,7 +81,7 @@ public class AnnotationBuilder {
                 for (final Map.Entry<String, StringBuilder> entry : uniqueConstraints.entrySet()) {
                     tableAnnotation.append("        @javax.persistence.UniqueConstraint(name = \"");
                     tableAnnotation.append(entry.getKey()).append("\", columnNames = {");
-                    tableAnnotation.append(entry.getValue()).append("})\n");
+                    tableAnnotation.append(entry.getValue()).append("}),\n");
                 }
                 tableAnnotation.append("    }\n");
             }
@@ -232,38 +239,16 @@ public class AnnotationBuilder {
 
             switch (entityDef.getPrimaryKey().getGeneratorType()) {
             case "SEQUENCE":
-                final StringBuilder sequenceAnnotation = new StringBuilder();
-                String generatorAnnotation = null;
-                sequenceAnnotation.append("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE");
-                if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
-                    final String generatorName = entityDef.getPrimaryKey().getGeneratorName();
-                    final Integer initialValue = entityDef.getPrimaryKey().getInitialValue();
-                    final Integer allocationSize = entityDef.getPrimaryKey().getAllocationSize();
-
-                    sequenceAnnotation.append(", generator = \"gen").append(entityDef.getClassName()).append("\"");
-                    // Add the @SequenceGenerator
-                    sequenceAnnotation.append(")");
-
-                    generatorAnnotation = "@javax.persistence.SequenceGenerator(name = \"gen" + entityDef.getClassName()
-                            + "\", sequenceName = \"" + generatorName + "\""
-                            + (initialValue != null ? ", allocationSize = " + allocationSize
-                                + ", initialValue = " + initialValue : "")
-                            + ")";
-                } else {
-                    sequenceAnnotation.append(")");
-                }
-                jpaPrimaryKey.addAnnotation(sequenceAnnotation.toString());
-                if (generatorAnnotation != null) {
-                    jpaPrimaryKey.addAnnotation(generatorAnnotation);
-                }
+                buildSequenceGenerator(entityDef);
+                break;
+            case "SEQHILO":
+                buildSeqHiloGenerator(entityDef);
                 break;
             case "IDENTITY":
                 jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.IDENTITY)");
                 break;
-            case "TABLE":
-                jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.TABLE)");
-                break;
             case "FOREIGN":
+                buildForeignGenerator(entityDef);
                 break; // it will be defined in the OneToOne
             case "GENERATOR":
                 if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
@@ -278,6 +263,88 @@ public class AnnotationBuilder {
         }
 
         jpaPrimaryKey.addAnnotation("@javax.persistence.Column(name = \"" + jpaPrimaryKey.getColumnName() + "\")");
+    }
+
+    private static void buildSequenceGenerator(final JpaEntity entityDef) {
+        final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
+        final StringBuilder sequenceAnnotation = new StringBuilder();
+        final StringBuilder generatorAnnotation = new StringBuilder();
+
+        sequenceAnnotation.append("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE");
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
+            final String generatorName = entityDef.getPrimaryKey().getGeneratorName();
+            final String initialValue = entityDef.getPrimaryKey().getInitialValue();
+            final String allocationSize = entityDef.getPrimaryKey().getAllocationSize();
+
+            sequenceAnnotation.append(", generator = \"gen").append(entityDef.getName()).append("\"");
+            // Add the @SequenceGenerator
+            sequenceAnnotation.append(")");
+
+            generatorAnnotation.append("@javax.persistence.SequenceGenerator(name = \"gen").append(entityDef.getName())
+                    .append("\", sequenceName = \"").append(generatorName).append("\"")
+                    .append(StringUtils.isNotBlank(allocationSize) ? ", allocationSize = " + allocationSize : "")
+                    .append(StringUtils.isNotBlank(initialValue) ? ", initialValue = " + initialValue : "")
+                    .append(")");
+        } else {
+            sequenceAnnotation.append(")");
+        }
+        jpaPrimaryKey.addAnnotation(sequenceAnnotation.toString());
+        if (!generatorAnnotation.isEmpty()) {
+            jpaPrimaryKey.addAnnotation(generatorAnnotation.toString());
+        }
+    }
+
+    private static void buildSeqHiloGenerator(final JpaEntity entityDef) {
+        final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
+
+        final String sequenceAnnotation =
+                "@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE"
+                        + ", generator = \"gen" + entityDef.getName() + "\""
+                        + ")";
+        jpaPrimaryKey.addAnnotation(sequenceAnnotation);
+
+        final StringBuilder generatorAnnotation = new StringBuilder();
+        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"gen")
+                .append(entityDef.getName())
+                .append("\",\n    strategy = \"org.hibernate.id.enhanced.SequenceStyleGenerator\"")
+                .append(",\n    parameters = {\n");
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
+            generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"sequence_name\"");
+            generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getGeneratorName());
+            generatorAnnotation.append("\"),\n");
+        }
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getInitialValue())) {
+            generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"initial_value\"");
+            generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getInitialValue());
+            generatorAnnotation.append("\"),\n");
+        }
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getIncrementSize())) {
+            generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"increment_size\"");
+            generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getIncrementSize());
+            generatorAnnotation.append("\"),\n");
+        }
+        generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"optimizer\"");
+        generatorAnnotation.append(", value = \"hilo\")\n");
+        generatorAnnotation.append("    }\n)");
+        jpaPrimaryKey.addAnnotation(generatorAnnotation.toString());
+    }
+
+    private static void buildForeignGenerator(final JpaEntity entityDef) {
+        final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
+
+        final String sequenceAnnotation =
+                "@javax.persistence.GeneratedValue(generator = \"gen" + entityDef.getName() + "\")";
+        jpaPrimaryKey.addAnnotation(sequenceAnnotation);
+
+        final StringBuilder generatorAnnotation = new StringBuilder();
+        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"gen")
+                .append(entityDef.getName())
+                .append("\",\n    strategy = \"foreign\"")
+                .append(",\n    parameters = ");
+        generatorAnnotation.append("@org.hibernate.annotations.Parameter(name = \"property\"");
+        generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getProperty());
+        generatorAnnotation.append("\")\n)");
+        jpaPrimaryKey.addAnnotation(generatorAnnotation.toString());
     }
 
     private void buildColumns(final JpaEntity entityDef) {
@@ -471,7 +538,8 @@ public class AnnotationBuilder {
                     if (relationship.isInverse()) {
                         String mappedBy = relationship.getMappedBy();
                         if (StringUtils.isBlank(mappedBy)) {
-                            mappedBy = Utils.lowercaseUntilLastUpper(entityDef.getClassName());
+                            mappedBy = Utils.searchVariableNameByType(outputFolder,
+                                    Utils.getSimpleClass(relationship.getTargetEntity()), entityDef.getName());
                         }
                         relationshipAnnotation.append("mappedBy = \"").append(mappedBy).append("\", ");
                     }
@@ -488,7 +556,7 @@ public class AnnotationBuilder {
                 case OneToOne:
                     if (entityDef.getPrimaryKey() != null &&
                             "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType()) &&
-                            relationship.getName().equals(entityDef.getPrimaryKey().getGeneratorName())) {
+                            relationship.getName().equals(entityDef.getPrimaryKey().getProperty())) {
                         relationship.addAnnotation("@javax.persistence.MapsId");
                     }
                     relationshipAnnotation.append("@javax.persistence.OneToOne(");

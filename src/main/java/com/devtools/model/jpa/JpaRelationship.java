@@ -16,7 +16,6 @@ public class JpaRelationship extends JpaAnnotation {
         OneToMany, OneToOne, ManyToOne, ManyToMany
     }
 
-    private String name;
     private String targetEntity;
     private Type type;
     private String fetch;

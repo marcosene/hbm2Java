@@ -4,8 +4,10 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,31 +16,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.FieldDeclaration;
+
 public interface Utils {
 
     Log LOG = LogFactory.getLog(Utils.class);
-
-    static String lowercaseUntilLastUpper(final String input) {
-        final int length = input.length();
-        int lastUpperIndex = -1;
-
-        // Find the last consecutive uppercase letter at the start
-        for (int i = 0; i < length; i++) {
-            if (!Character.isUpperCase(input.charAt(i))) {
-                break;
-            }
-            lastUpperIndex = i;
-        }
-
-        // If there are any leading uppercase letters, process them
-        if (lastUpperIndex >= 0) {
-            final String lowerPart = input.substring(0, lastUpperIndex + 1).toLowerCase();
-            return lowerPart + input.substring(lastUpperIndex + 1);
-        }
-
-        // Return the original string if no uppercase sequence was found
-        return input;
-    }
 
     static String getFileNameNoExtensions(final String absoluteFilename) {
         // Extract just the filename
@@ -217,5 +201,64 @@ public interface Utils {
         }
         matcher.appendTail(sb);
         return sb.toString();
+    }
+
+    /**
+     * Recursively searches for a file matching the specified class name inside the folder.
+     * It looks for either “ClassName.java” or “ClassName.class”.
+     *
+     * @param folder    the starting directory to search in
+     * @param className the name of the class (without extension)
+     * @return the full absolute path of the file if found; otherwise, null.
+     */
+    static String findClassPath(final File folder, final String className) {
+        if (folder == null || !folder.isDirectory()) {
+            return null;
+        }
+
+        final File[] files = folder.listFiles();
+        if (files != null) { // check that folder is readable
+            for (final File file : files) {
+                if (file.isDirectory()) {
+                    // Explore subdirectory recursively.
+                    final String result = findClassPath(file, className);
+                    if (result != null) {
+                        return result;
+                    }
+                } else {
+                    // Check for match against either .java or .class file.
+                    final String fileName = file.getName();
+                    if (fileName.equals(className + ".java") || fileName.equals(className + ".class")) {
+                        return file.getAbsolutePath();
+                    }
+                }
+            }
+        }
+        return null; // no match found in this folder/subfolders
+    }
+
+    static String searchVariableNameByType(final String outputFolder, final String className, final String type) {
+        final String fullClassFilename = Utils.findClassPath(new File(outputFolder), className);
+
+        final Path path;
+        try {
+            path = Paths.get(fullClassFilename);
+        } catch (final Exception e) {
+            return null;
+        }
+
+        // Parse the file
+        final CompilationUnit cu;
+        try {
+            cu = StaticJavaParser.parse(path);
+        } catch (final IOException e) {
+            LOG.error("Class " + className + " not found");
+            return null;
+        }
+        final Optional<FieldDeclaration> fieldDeclaration = cu.findAll(FieldDeclaration.class).stream()
+                .filter(field -> field.getElementType().asString().equals(type))
+                .findFirst();
+        return fieldDeclaration.map(declaration ->
+                declaration.getVariables().get(0).getNameAsString()).orElse(null);
     }
 }

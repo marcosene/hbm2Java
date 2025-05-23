@@ -13,7 +13,6 @@ import org.apache.commons.lang3.StringUtils;
 public class JpaEntity extends JpaAnnotation {
 
     private String defaultCascade;
-    private String className;
     private String table;
     private String parentClass;
     private String inheritance;
@@ -38,16 +37,16 @@ public class JpaEntity extends JpaAnnotation {
         }
     }
 
-    public String getClassName() {
-        if (className != null) {
-            return className.contains(".") ? className.substring(className.lastIndexOf(".") + 1) : className;
+    public String getName() {
+        if (name != null) {
+            return name.contains(".") ? name.substring(name.lastIndexOf(".") + 1) : name;
         }
         return null;
     }
 
-    public void setClassName(final String className) {
+    public void setName(final String className) {
         if (StringUtils.isNotBlank(className)) {
-            this.className = className;
+            this.name = className;
         }
     }
 
@@ -117,8 +116,8 @@ public class JpaEntity extends JpaAnnotation {
 
     public String getPackageName() {
         // Extract the package name from the full class name
-        if (className != null && className.contains(".")) {
-            return className.substring(0, className.lastIndexOf("."));
+        if (name != null && name.contains(".")) {
+            return name.substring(0, name.lastIndexOf("."));
         }
         // Return a default package if not defined (or throw an exception if required)
         return "";

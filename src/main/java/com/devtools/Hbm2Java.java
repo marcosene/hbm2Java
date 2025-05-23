@@ -1,6 +1,7 @@
 package com.devtools;
 
 import java.io.File;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -9,10 +10,11 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
 import com.devtools.model.jpa.JpaBase;
+import com.devtools.model.jpa.JpaColumn;
 import com.devtools.model.jpa.JpaEntity;
+import com.devtools.processing.AnnotationApplier;
 import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.EntityGenerator;
-import com.devtools.processing.AnnotationApplier;
 import com.devtools.processing.HbmParser;
 import com.devtools.utils.Utils;
 
@@ -31,16 +33,20 @@ import com.devtools.utils.Utils;
  *
  * <p>Usage:</p>
  * <pre>
- *   java Hbm2Java /path/to/inputFolder /path/to/outputFolder [--annotateExisting]
+ *   java Hbm2Java /path/to/inputFolder /path/to/baseOutputFolder [--annotateExisting]
  * </pre>
- * <p>If the optional {@code --existingClasses} parameter is provided, annotations will be
+ * <p>Where inputFolder is the folder containing all *hbm.xml files
+ *     and baseOutputFolder is the the base folder used to search for existing files (when --annotateExisting) or
+ *     output folder when generating new ones</p>
+ * <p>If the optional {@code --annotateExisting} parameter is provided, annotations will be
  * added to existing Java entity classes instead of generating new ones.</p>
  *
  * <p>Key components involved:</p>
  * <ul>
  *   <li>{@link HbmParser} - Parses HBM XML files into JPA model objects.</li>
  *   <li>{@link AnnotationBuilder} - Generates annotations for parsed entities.</li>
- *   <li>{@link AnnotationApplier} - Integrates annotations into existing files or generates new entity classes.</li>
+ *   <li>{@link AnnotationApplier} - Integrates annotations into existing files</li>
+ *   <li>{@link EntityGenerator} - or generates new entity classes.</li>
  * </ul>
  *
  * <p>Logging must be checked to track progress, and error handling ensures robustness against
@@ -63,6 +69,11 @@ public class Hbm2Java {
         final File folder = new File(inputFolder);
 
         if (folder.exists() && folder.isDirectory()) {
+            final HbmParser hbmParser = new HbmParser();
+            final AnnotationBuilder annotationBuilder = new AnnotationBuilder(outputFolder);
+            final AnnotationApplier annotationApplier = new AnnotationApplier();
+            final EntityGenerator entityGenerator = new EntityGenerator();
+
             final File[] files = folder.listFiles((dir, name) -> name.endsWith(".hbm.xml"));
 
             if (files != null) {
@@ -72,47 +83,27 @@ public class Hbm2Java {
                     final String hbmFilePath = hbmFile.getAbsolutePath();
                     LOG.info("Parsing: " + hbmFilePath);
 
-                    final HbmParser hbmParser = new HbmParser();
                     final JpaBase jpaBase = hbmParser.parse(hbmFilePath);
 
                     if (jpaBase == null) {
                         LOG.error("Failed to parse: " + hbmFilePath);
                     } else {
-                        jpaBase.getEntities().forEach(entity -> jpaEntityMap.put(entity.getClassName(), entity));
+                        jpaBase.getEntities().forEach(entity -> jpaEntityMap.put(entity.getName(), entity));
                     }
                 }
 
                 // Check if something needs to be done in the parent class before building annotations
-                // like setting Inheritance
-                for (final Map.Entry<String, JpaEntity> entry : jpaEntityMap.entrySet()) {
-                    final JpaEntity jpaEntity = entry.getValue();
-                    if (jpaEntity.getParentClass() != null) {
-                        final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getParentClass());
-                        if (parentEntity != null) {
-                            if (jpaEntity.isSecondTable()) {
-                                parentEntity.setInheritance("JOINED");
-                            } else if (StringUtils.isNotBlank(jpaEntity.getTable())) {
-                                parentEntity.setInheritance("TABLE_PER_CLASS");
-                            } else {
-                                if (parentEntity.getInheritance() == null) {
-                                    parentEntity.setInheritance("SINGLE_TABLE");
-                                }
-                            }
-                        }
-                    }
-                }
+                // like setting Inheritance or Embeddable
+                checkAdditionalSettings(jpaEntityMap);
 
                 for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
-                    LOG.info("Building: " + jpaEntity.getClassName());
+                    LOG.info("Building: " + jpaEntity.getName());
                     try {
-                        final AnnotationBuilder annotationBuilder = new AnnotationBuilder();
                         annotationBuilder.build(jpaEntity);
 
                         if (annotateExisting) {
-                            final AnnotationApplier annotationApplier = new AnnotationApplier();
                             annotationApplier.replace(jpaEntity, outputFolder);
                         } else {
-                            final EntityGenerator entityGenerator = new EntityGenerator();
                             entityGenerator.generate(jpaEntity, outputFolder);
                         }
                     } catch (final Exception e) {
@@ -124,6 +115,39 @@ public class Hbm2Java {
             }
         } else {
             LOG.error("Input folder not found or is not a directory: " + inputFolder);
+        }
+    }
+
+    private static void checkAdditionalSettings(final Map<String, JpaEntity> jpaEntityMap) {
+        for (final Map.Entry<String, JpaEntity> entry : new HashSet<>(jpaEntityMap.entrySet())) {
+            final JpaEntity jpaEntity = entry.getValue();
+            if (jpaEntity.getParentClass() != null) {
+                final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getParentClass());
+                if (parentEntity != null && parentEntity.getDiscriminator() != null) {
+                    if (jpaEntity.isSecondTable()) {
+                        parentEntity.setInheritance("JOINED");
+                    } else if (StringUtils.isNotBlank(jpaEntity.getTable())) {
+                        parentEntity.setInheritance("TABLE_PER_CLASS");
+                    } else {
+                        if (parentEntity.getInheritance() == null) {
+                            parentEntity.setInheritance("SINGLE_TABLE");
+                        }
+                    }
+                }
+            }
+
+            for (final JpaColumn jpaColumn : jpaEntity.getColumns()) {
+                if (jpaColumn.isComposite()) {
+                    final String embeddableClass = Utils.getSimpleClass(jpaColumn.getType());
+                    JpaEntity embeddable = jpaEntityMap.get(embeddableClass);
+                    if (embeddable == null) {
+                        embeddable = new JpaEntity();
+                        embeddable.setName(embeddableClass);
+                        embeddable.setEmbeddable(true);
+                        jpaEntityMap.put(embeddableClass, embeddable);
+                    }
+                }
+            }
         }
     }
 }

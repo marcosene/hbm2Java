@@ -3,11 +3,7 @@ package com.devtools.processing;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -22,18 +18,18 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
-import com.devtools.model.jpa.JpaDiscriminator;
-import com.devtools.utils.Utils;
 import com.devtools.model.hbm.Attributes;
+import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaBase;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaDiscriminator;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.model.hbm.Tags;
 import com.devtools.utils.DomUtils;
 import com.devtools.utils.HibernateUtils;
+import com.devtools.utils.Utils;
 
 public class HbmParser {
 
@@ -52,7 +48,7 @@ public class HbmParser {
             parseQueries(root, queriesEntity);
             if (!queriesEntity.getNamedQueries().isEmpty()) {
                 final String fileName = Utils.getFileNameNoExtensions(filePath);
-                queriesEntity.setClassName(fileName);
+                queriesEntity.setName(fileName);
                 jpaBase.addEntity(queriesEntity);
             }
         }
@@ -104,10 +100,16 @@ public class HbmParser {
     }
 
     private JpaEntity parseEntity(final Element classElement, final String defaultCascade) {
-        final JpaEntity entityDef = new JpaEntity();
+        return parseEntity(null, classElement, defaultCascade);
+    }
+
+    private JpaEntity parseEntity(JpaEntity entityDef, final Element classElement, final String defaultCascade) {
+        if (entityDef == null) {
+            entityDef = new JpaEntity();
+        }
 
         entityDef.setDefaultCascade(defaultCascade);
-        entityDef.setClassName(classElement.getAttribute(Attributes.ATTR_NAME));
+        entityDef.setName(classElement.getAttribute(Attributes.ATTR_NAME));
         entityDef.setTable(classElement.getAttribute(Attributes.ATTR_TABLE));
         entityDef.setDynamicInsert(classElement.getAttribute(Attributes.ATTR_DYNAMIC_INSERT));
         entityDef.setDynamicUpdate(classElement.getAttribute(Attributes.ATTR_DYNAMIC_UPDATE));
@@ -128,7 +130,7 @@ public class HbmParser {
             entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
             entityDef.setSecondTable(true);
 
-            parsePropertyList(joinElement, entityDef);
+            parseEntity(entityDef, joinElement, defaultCascade);
         }
 
         parseDiscriminator(classElement, entityDef);
@@ -186,45 +188,33 @@ public class HbmParser {
             final Element generatorElement = DomUtils.getFirstChildByTag(idElement, Tags.TAG_GENERATOR);
             if (generatorElement != null) {
                 final String generatorClass = generatorElement.getAttribute(Attributes.ATTR_CLASS);
-                final Map<String, String> params = new HashMap<>();
 
                 // Collect all params
                 final List<Element> paramElements = DomUtils.getChildrenByTag(generatorElement, Tags.TAG_PARAM);
                 for (final Element paramElement : paramElements) {
                     final String paramName = paramElement.getAttribute(Attributes.ATTR_NAME);
                     final String paramValue = paramElement.getTextContent().trim();
-                    params.put(paramName, paramValue);
+                    primaryKey.getGeneratorParams().put(paramName, paramValue);
                 }
 
                 // Map generator to JPA annotations
                 switch (generatorClass) {
                     case "sequence":
-                        primaryKey.setGeneratorType("SEQUENCE");
-                        primaryKey.setGeneratorName(params.get("sequence"));
-                        parseGeneratorParameters(params.get("parameters"), primaryKey);
-                        break;
                     case "seqhilo":
-                        primaryKey.setGeneratorType("SEQUENCE");
-                        primaryKey.setGeneratorName(params.get("sequence"));
-                        parseGeneratorParameters(params.get("parameters"), primaryKey);
-                        if (StringUtils.isNotBlank(params.get("max_lo"))) {
-                            primaryKey.setAllocationSize(Integer.parseInt(params.get("max_lo")));
-                        }
-                        break;
-                    case "increment":
-                        primaryKey.setGeneratorType("TABLE");
-                        break;
                     case "identity":
-                        primaryKey.setGeneratorType("IDENTITY");
-                        break;
                     case "foreign":
-                        primaryKey.setGeneratorType("FOREIGN");
-                        primaryKey.setGeneratorName(params.get("property"));
+                        primaryKey.setGeneratorType(generatorClass.toUpperCase());
                         break;
+
+                    case "increment":
+                    case "native":
+                        primaryKey.setGeneratorType("AUTO");
+                        break;
+
                     default:
                         // Default to a general generator if not a common type
                         primaryKey.setGeneratorType("GENERATOR");
-                        primaryKey.setGeneratorName(generatorClass);
+                        primaryKey.getGeneratorParams().put(JpaPrimaryKey.PARAMS_SEQUENCE, generatorClass);
                         break;
                 }
             }
@@ -387,13 +377,6 @@ public class HbmParser {
             relationship.setType(JpaRelationship.Type.OneToOne);
             relationship.setFetch("eager");
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
-
-            if (entityDef.getPrimaryKey() != null && "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType())) {
-                final JpaColumn keyColumn = new JpaColumn();
-                keyColumn.setName(relationship.getName());
-                keyColumn.setColumnName(entityDef.getPrimaryKey().getColumnName());
-                relationship.addReferencedColumn(keyColumn);
-            }
         }
 
         final List<Element> oneToManyElements = DomUtils.getChildrenByTag(element, Tags.TAG_ONE_TO_MANY);
@@ -564,7 +547,7 @@ public class HbmParser {
             entityDef.addColumn(embeddedColumn);
 
             final JpaEntity embeddedField = new JpaEntity();
-            embeddedField.setClassName(componentElement.getAttribute(Attributes.ATTR_CLASS));
+            embeddedField.setName(componentElement.getAttribute(Attributes.ATTR_CLASS));
             embeddedField.setEmbeddable(true);
             parsePropertyList(componentElement, embeddedField);
 
@@ -599,28 +582,6 @@ public class HbmParser {
             returnColumn.setColumnName(returnScalarElement.getAttribute(Attributes.ATTR_COLUMN));
             returnColumn.setType(returnScalarElement.getAttribute(Attributes.ATTR_TYPE));
             namedQuery.addReturnColumn(returnColumn);
-        }
-    }
-
-    private void parseGeneratorParameters(final String paramValue, final JpaPrimaryKey primaryKey) {
-        final Pattern PARAMETERS_PATTERN = Pattern.compile("^START WITH\\s+(\\d+)(?:\\s+CACHE\\s+(\\d+))?$",
-                Pattern.CASE_INSENSITIVE);
-        final Matcher matcher = PARAMETERS_PATTERN.matcher(paramValue);
-
-        if (matcher.matches()) {
-            try {
-                // Convert the captured strings to integers
-                primaryKey.setInitialValue(Integer.parseInt(matcher.group(1)));
-                if (StringUtils.isNotBlank(matcher.group(2))) {
-                    primaryKey.setAllocationSize(Integer.parseInt(matcher.group(2)));
-                }
-            } catch (final NumberFormatException e) {
-                throw new IllegalArgumentException(
-                        "Could not parse generator parameters within the string: " + paramValue, e);
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    "Generator Parameter string does not match expected format 'START WITH <number> CACHE <number>': " + paramValue);
         }
     }
 

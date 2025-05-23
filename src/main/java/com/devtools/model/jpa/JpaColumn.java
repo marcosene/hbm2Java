@@ -19,7 +19,6 @@ public class JpaColumn extends JpaAnnotation {
     }
 
     private String type;
-    private String name;
     private String columnName;
     private Integer length = 255;
     private boolean nullable = true;
