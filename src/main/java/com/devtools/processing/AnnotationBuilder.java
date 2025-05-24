@@ -539,7 +539,7 @@ public class AnnotationBuilder {
                         String mappedBy = relationship.getMappedBy();
                         if (StringUtils.isBlank(mappedBy)) {
                             mappedBy = Utils.searchVariableNameByType(outputFolder,
-                                    Utils.getSimpleClass(relationship.getType()), entityDef.getName());
+                                    Utils.getSimpleClass(relationship.getReturnType()), entityDef.getName());
                         }
                         relationshipAnnotation.append("mappedBy = \"").append(mappedBy).append("\", ");
                     }
@@ -549,10 +549,6 @@ public class AnnotationBuilder {
                     }
                     relationshipAnnotation.append(")");
                     relationship.addAnnotation(relationshipAnnotation.toString());
-
-                    if (!joinColumn.isEmpty()) {
-                        relationship.addAnnotation(joinColumn);
-                    }
                     break;
 
                 case OneToOne:

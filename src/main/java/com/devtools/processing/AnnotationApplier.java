@@ -155,7 +155,7 @@ public class AnnotationApplier {
             final AtomicBoolean hasChanged) {
         if (jpaAnnotation.getType() != null) {
             final String annotationType = Utils.getSimpleClass(
-                    HibernateUtils.mapHibernateTypeToJava(jpaAnnotation.getType(false), true));
+                    HibernateUtils.mapHibernateTypeToJava(jpaAnnotation.getType(), true));
             final String fieldType = Utils.getSimpleClass(extractFullType(field.getVariables().get(0).getType()));
 
             // Add @Type when the annotation type is different of the field return type
@@ -163,7 +163,7 @@ public class AnnotationApplier {
                     !annotationType.equals(fieldType) &&
                     jpaAnnotation.getAnnotations().stream().noneMatch(ann -> ann.contains("AttributeOverrides"))) {
                 final StringBuilder typeAnnotation = new StringBuilder();
-                typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaAnnotation.getType(false))
+                typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaAnnotation.getType())
                         .append("\"");
                 if (!jpaAnnotation.getTypeParams().isEmpty()) {
                     typeAnnotation.append(",\n        parameters = {\n");

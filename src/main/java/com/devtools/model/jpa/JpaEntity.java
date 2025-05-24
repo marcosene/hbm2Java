@@ -38,6 +38,10 @@ public class JpaEntity extends JpaAnnotation {
         }
     }
 
+    public String getType() {
+        return name;
+    }
+
     public String getName() {
         if (name != null) {
             return name.contains(".") ? name.substring(name.lastIndexOf(".") + 1) : name;

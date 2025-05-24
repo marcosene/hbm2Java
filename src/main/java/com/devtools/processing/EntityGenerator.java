@@ -95,8 +95,8 @@ public class EntityGenerator {
     private static void getColumnImportClasses(final List<JpaColumn> columns, final Set<String> importClasses) {
         for (final JpaColumn column : columns) {
             // Add to imports if it's not a native type
-            if (column.getType() != null && HibernateUtils.isCustomType(HibernateUtils.mapHibernateTypeToJava(column.getType(false)))) {
-                importClasses.add(column.getType(false));
+            if (column.getType() != null && HibernateUtils.isCustomType(HibernateUtils.mapHibernateTypeToJava(column.getType()))) {
+                importClasses.add(column.getType());
             }
             for (final Map.Entry<String, String> entry : column.getTypeParams().entrySet()) {
                 if ("enumClass".equals(entry.getKey())) {
@@ -140,7 +140,7 @@ public class EntityGenerator {
             for (final String annotation : col.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
-            entityCode.append("    private ").append(Utils.getSimpleClass(HibernateUtils.mapHibernateTypeToJava(col.getType())))
+            entityCode.append("    private ").append(Utils.getSimpleClass(HibernateUtils.mapHibernateTypeToJava(col.getReturnType())))
                     .append(" ").append(col.getName()).append(";\n\n");
         }
     }
@@ -172,7 +172,7 @@ public class EntityGenerator {
             for (final String annotation : varColumn.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
-            entityCode.append("    private ").append(varColumn.getType())
+            entityCode.append("    private ").append(varColumn.getReturnType())
                     .append(" ").append(varColumn.getName()).append(";\n\n");
         }
     }
@@ -201,10 +201,10 @@ public class EntityGenerator {
             }
 
             if (Tags.TAG_MAP.equals(relationship.getCollectionType())) {
-                entityCode.append(relationship.getReferencedColumns().get(0).getType()).append(", ");
-                entityCode.append(relationship.getType());
+                entityCode.append(relationship.getReferencedColumns().get(0).getReturnType()).append(", ");
+                entityCode.append(relationship.getReturnType());
             } else {
-                entityCode.append(Utils.getSimpleClass(relationship.getType()));
+                entityCode.append(Utils.getSimpleClass(relationship.getReturnType()));
             }
 
             if (relationship.getRelationshipType().equals(JpaRelationship.Type.OneToMany) ||
@@ -232,7 +232,7 @@ public class EntityGenerator {
                     prePersistCode.append("    protected void onPrePersist() {\n");
                 }
 
-                final String columnType = HibernateUtils.mapHibernateTypeToJava(jpaColumn.getType());
+                final String columnType = HibernateUtils.mapHibernateTypeToJava(jpaColumn.getReturnType());
                 prePersistCode.append("        if (this.").append(jpaColumn.getName()).append(" == null) {\n");
                 prePersistCode.append("            this.").append(jpaColumn.getName()).append(" = ");
                 if ("Boolean".equals(columnType)) {

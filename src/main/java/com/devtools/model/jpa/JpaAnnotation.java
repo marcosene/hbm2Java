@@ -27,21 +27,17 @@ public abstract class JpaAnnotation {
 
     private volatile boolean processed = false;
 
-    public String getType(final boolean returnType) {
-        if (!typeParams.isEmpty() && returnType && typeParams.containsKey("enumClass")) {
+    public String getReturnType() {
+        if (!typeParams.isEmpty() && typeParams.containsKey("enumClass")) {
             return typeParams.get("enumClass");
         }
-        if (type != null && returnType) {
-            final String normalizedReturnType = type.endsWith("UserType") ? type.replace("UserType", "") :
-                    type.endsWith("Type") ? type.replace("Type", "") : type;
+        if (type != null && type.endsWith("Type")) {
+            final String normalizedReturnType = type.endsWith("UserType") ?
+                    type.replace("UserType", "") : type.replace("Type", "");
             return normalizedReturnType.replace(".usertypes", "");
         } else {
             return type;
         }
-    }
-
-    public String getType() {
-        return getType(true);
     }
 
     public void setType(final String type) {
@@ -58,6 +54,6 @@ public abstract class JpaAnnotation {
 
     public void addAnnotation(final String annotation) {
         imports.addAll(Utils.extractFullyQualifiedClassNames(annotation));
-        annotations.add(Utils.simplifyClassNames(annotation));
+        annotations.add(Utils.removePackagesFromText(annotation));
     }
 }

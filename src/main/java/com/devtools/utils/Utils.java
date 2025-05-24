@@ -151,7 +151,7 @@ public interface Utils {
      * @param input the input string possibly containing fully qualified class names
      * @return the input string with package names removed from fully qualified names (outside quotes)
      */
-    static String simplifyClassNames(final String input) {
+    static String removePackagesFromText(final String input) {
         // Split the input on double quotes.
         // Even-index segments (0, 2, …) are outside quotes; odd-index segments are inside quotes.
         final String[] parts = input.split("\"", -1);
@@ -256,7 +256,7 @@ public interface Utils {
             return null;
         }
         final Optional<FieldDeclaration> fieldDeclaration = cu.findAll(FieldDeclaration.class).stream()
-                .filter(field -> field.getElementType().asString().equals(type))
+                .filter(field -> Utils.getSimpleClass(field.getElementType().asString()).equals(Utils.getSimpleClass(type)))
                 .findFirst();
         return fieldDeclaration.map(declaration ->
                 declaration.getVariables().get(0).getNameAsString()).orElse(null);

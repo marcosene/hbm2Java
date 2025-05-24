@@ -124,19 +124,10 @@ public class Hbm2Java {
         for (final Map.Entry<String, JpaEntity> entry : new HashSet<>(jpaEntityMap.entrySet())) {
             final JpaEntity jpaEntity = entry.getValue();
             if (jpaEntity.getParentClass() != null) {
-                final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getParentClass());
-                if (parentEntity != null && parentEntity.getDiscriminator() != null) {
-                    if (jpaEntity.isSecondTable()) {
-                        parentEntity.setInheritance("JOINED");
-                    } else if (StringUtils.isNotBlank(jpaEntity.getTable())) {
-                        parentEntity.setInheritance("TABLE_PER_CLASS");
-                    } else {
-                        if (parentEntity.getInheritance() == null) {
-                            parentEntity.setInheritance("SINGLE_TABLE");
-                        }
-                    }
-                }
+                setInheritanceOnParentClass(jpaEntityMap, jpaEntity);
             }
+
+            setForeignKeyInverseRelationship(jpaEntityMap, jpaEntity);
 
             setCompositeColumnEmbeddable(jpaEntityMap, jpaEntity.getColumns());
             for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
@@ -145,10 +136,46 @@ public class Hbm2Java {
         }
     }
 
+    private static void setInheritanceOnParentClass(final Map<String, JpaEntity> jpaEntityMap, final JpaEntity jpaEntity) {
+        final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getParentClass());
+        if (parentEntity != null && parentEntity.getDiscriminator() != null &&
+                parentEntity.getDiscriminator().getColumn() != null) {
+            if (jpaEntity.isSecondTable()) {
+                parentEntity.setInheritance("JOINED");
+            } else if (StringUtils.isNotBlank(jpaEntity.getTable())) {
+                parentEntity.setInheritance("TABLE_PER_CLASS");
+            } else {
+                if (parentEntity.getInheritance() == null) {
+                    parentEntity.setInheritance("SINGLE_TABLE");
+                }
+            }
+        }
+    }
+
+    private static void setForeignKeyInverseRelationship(final Map<String, JpaEntity> jpaEntityMap, final JpaEntity jpaEntity) {
+        for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
+            if (JpaRelationship.Type.OneToMany.equals(jpaRelationship.getRelationshipType()) &&
+                !jpaRelationship.getReferencedColumns().isEmpty() &&
+                    StringUtils.isNotBlank(jpaRelationship.getReferencedColumns().get(0).getForeignKey())) {
+                final JpaEntity inverseEntity = jpaEntityMap.get(Utils.getSimpleClass(jpaRelationship.getReturnType()));
+                if (inverseEntity != null) {
+                    for (final JpaRelationship inverseRelationship : inverseEntity.getRelationships()) {
+                        if (JpaRelationship.Type.ManyToOne.equals(inverseRelationship.getRelationshipType()) &&
+                                inverseRelationship.getReturnType().equals(jpaEntity.getType())) {
+                            inverseRelationship.getReferencedColumns().get(0).setForeignKey(
+                                    jpaRelationship.getReferencedColumns().get(0).getForeignKey());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private static void setCompositeColumnEmbeddable(final Map<String, JpaEntity> jpaEntityMap, final List<JpaColumn> columns) {
         for (final JpaColumn jpaColumn : columns) {
             if (jpaColumn.isComposite()) {
-                final String embeddableClass = Utils.getSimpleClass(jpaColumn.getType());
+                final String embeddableClass = Utils.getSimpleClass(jpaColumn.getReturnType());
                 JpaEntity embeddable = jpaEntityMap.get(embeddableClass);
                 if (embeddable == null) {
                     embeddable = new JpaEntity();
