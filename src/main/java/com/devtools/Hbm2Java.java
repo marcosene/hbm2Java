@@ -18,8 +18,8 @@ import com.devtools.processing.AnnotationApplier;
 import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.EntityGenerator;
 import com.devtools.processing.HbmParser;
-import com.devtools.utils.FileUtils;
 import com.devtools.utils.ClassNameUtils;
+import com.devtools.utils.FileUtils;
 
 /**
  * The {@code Hbm2Java} class facilitates the conversion of Hibernate HBM XML files into
@@ -120,7 +120,7 @@ public class Hbm2Java {
     }
 
     private static void processConversion(final String inputFolder, final String outputFolder, 
-                                        final boolean annotateExisting) throws Exception {
+            final boolean annotateExisting) {
         
         if (FileUtils.createDirectories(outputFolder)) {
             throw new RuntimeException("Failed to create or validate output folder: " + outputFolder);

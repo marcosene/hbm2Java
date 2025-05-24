@@ -17,9 +17,9 @@ import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaColumn;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.utils.HibernateUtils;
-import com.devtools.utils.FileUtils;
 import com.devtools.utils.ClassNameUtils;
+import com.devtools.utils.FileUtils;
+import com.devtools.utils.HibernateUtils;
 
 public class EntityGenerator {
 
@@ -45,7 +45,7 @@ public class EntityGenerator {
         generateRelationships(entityDef, entityCode);
 
         // Handle Embedded fields and Embeddable classes
-        generateEmbedded(entityDef, entityCode, outputFolder);
+        generateEmbedded(entityDef, outputFolder);
 
         // Handle default values
         generatePrePersist(entityDef, entityCode);
@@ -216,7 +216,7 @@ public class EntityGenerator {
         }
     }
 
-    private void generateEmbedded(final JpaEntity entityDef, final StringBuilder entityCode, final String outputFolder)
+    private void generateEmbedded(final JpaEntity entityDef, final String outputFolder)
             throws IOException {
         for (final JpaEntity embeddedField : entityDef.getEmbeddedFields()) {
             generate(embeddedField, outputFolder);

@@ -12,8 +12,8 @@ import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.ClassNameUtils;
+import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.JavaParserUtils;
 
 public class AnnotationBuilder {

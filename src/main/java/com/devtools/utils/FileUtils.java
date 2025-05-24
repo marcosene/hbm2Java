@@ -6,12 +6,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Collection;
-
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.filefilter.NameFileFilter;
-import org.apache.commons.io.filefilter.TrueFileFilter;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -87,42 +85,44 @@ public final class FileUtils {
      */
     public static String getFileNameNoExtensions(final String absoluteFilename) {
         // Use Apache Commons IO to extract filename without extension
-        final String fileName = FilenameUtils.getBaseName(absoluteFilename);
-        
+        String fileName = FilenameUtils.getBaseName(absoluteFilename);
+
+        // Remove multiple extensions manually (everything after the first dot)
+        final int firstDotIndex = fileName.indexOf('.');
+        if (firstDotIndex != -1) {
+            fileName = fileName.substring(0, firstDotIndex);
+        }
+
         // Capitalize the first letter using Apache Commons Lang3
         return StringUtils.capitalize(fileName);
     }
 
     /**
      * Recursively searches for a file matching the specified class name inside the folder.
-     * It looks for either "ClassName.java" or "ClassName.class".
+     * It looks for "ClassName.java"
      * Uses Apache Commons IO for more efficient file searching.
      *
      * @param folder    the starting directory to search in
      * @param className the name of the class (without extension)
      * @return the full absolute path of the file if found; otherwise, null.
      */
-    public static String findClassPath(final File folder, final String className) {
+    public static String findClassPath(final File folder, final String packageName, final String className) {
         if (folder == null || !folder.isDirectory()) {
             return null;
         }
 
-        // Use Apache Commons IO to search for files with specific names
-        final NameFileFilter javaFilter = new NameFileFilter(className + ".java");
-        final NameFileFilter classFilter = new NameFileFilter(className + ".class");
-        
-        // Search for .java files first
-        Collection<File> javaFiles = org.apache.commons.io.FileUtils.listFiles(folder, javaFilter, TrueFileFilter.INSTANCE);
-        if (!javaFiles.isEmpty()) {
-            return javaFiles.iterator().next().getAbsolutePath();
-        }
-        
-        // Search for .class files if no .java file found
-        Collection<File> classFiles = org.apache.commons.io.FileUtils.listFiles(folder, classFilter, TrueFileFilter.INSTANCE);
-        if (!classFiles.isEmpty()) {
-            return classFiles.iterator().next().getAbsolutePath();
-        }
-        
-        return null; // no match found
+        final Path rootPath = folder.toPath();
+        final String targetFile = className + ".java";
+
+        try (final Stream<Path> pathStream = Files.walk(rootPath)) {
+            final Optional<Path> foundPath = pathStream // Goes deep into subfolders
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString().equals(targetFile))
+                    .filter(path -> path.toAbsolutePath().toString().contains(packageName.replace(".", File.separator)))
+                    .findFirst();
+
+            return foundPath.map(Path::toAbsolutePath).map(Path::toString).orElse(null);
+        } catch (final Exception ignored) {}
+        return null;
     }
 }

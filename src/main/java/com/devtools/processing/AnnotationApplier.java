@@ -7,11 +7,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -21,9 +19,9 @@ import org.apache.commons.logging.LogFactory;
 import com.devtools.model.jpa.JpaAnnotation;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaPrimaryKey;
-import com.devtools.utils.HibernateUtils;
-import com.devtools.utils.FileUtils;
 import com.devtools.utils.ClassNameUtils;
+import com.devtools.utils.FileUtils;
+import com.devtools.utils.HibernateUtils;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
@@ -51,11 +49,13 @@ public class AnnotationApplier {
 
     private static final JavaParser JAVA_PARSER = new JavaParser();
 
-    public void replace(final JpaEntity entity, final String outputFolder) throws IOException {
-        // Initialize cache to track processed classes across the entire entity hierarchy
-        final Set<String> processedClasses = new HashSet<>();
+    // Initialize cache to track processed classes across the entire entity hierarchy
+    private final Map<String, String> processedClasses = new HashMap<>();
+    private final Map<String, List<String>> processedFields = new HashMap<>();
 
-        writeAnnotations(entity, outputFolder, entity.getName(), false, processedClasses);
+    public void replace(final JpaEntity entity, final String outputFolder) throws IOException {
+
+        writeAnnotations(entity, outputFolder, ClassNameUtils.getPackageName(entity.getType()), entity.getName(), false);
 
         // Check if some element parsed from the hbm.xml has no corresponding field in the class
         validateFieldsNotFound(entity);
@@ -66,19 +66,10 @@ public class AnnotationApplier {
         }
     }
 
-    private void writeAnnotations(final JpaEntity entity, final String outputFolder, final String className,
-            final boolean isParentClass, final Set<String> processedClasses) throws IOException {
+    private void writeAnnotations(final JpaEntity entity, final String outputFolder, final String packageName,
+            final String className, final boolean isParentClass) throws IOException {
         
-        // Check if this class has already been processed to avoid redundant work
-        if (processedClasses.contains(className)) {
-            LOG.debug("Skipping already processed class: " + className);
-            return;
-        }
-        
-        // Mark this class as processed
-        processedClasses.add(className);
-        
-        final String fullClassFilename = FileUtils.findClassPath(new File(outputFolder), className);
+        final String fullClassFilename = FileUtils.findClassPath(new File(outputFolder), packageName, className);
 
         final Path path;
         try {
@@ -117,7 +108,7 @@ public class AnnotationApplier {
 
                 allFields.stream()
                         .filter(jpaAnnotation -> jpaAnnotation.getName() != null && jpaAnnotation.getName().equals(variable.getNameAsString()))
-                        .forEach(jpaAnnotation -> processJpaAnnotation(field, jpaAnnotation, cu, hasChanged));
+                        .forEach(jpaAnnotation -> processJpaAnnotation(className, field, jpaAnnotation, cu, hasChanged));
             }
         });
 
@@ -127,7 +118,7 @@ public class AnnotationApplier {
         nonStandardGetters.forEach((nonStandardName, field) -> allFields.stream()
                 .filter(jpaAnnotation -> !jpaAnnotation.isProcessed() && jpaAnnotation.getName() != null &&
                         jpaAnnotation.getName().equals(nonStandardName))
-                .forEach(jpaAnnotation -> processJpaAnnotation(field, jpaAnnotation, cu, hasChanged)));
+                .forEach(jpaAnnotation -> processJpaAnnotation(className, field, jpaAnnotation, cu, hasChanged)));
 
         // Write the modified file back
         if (hasChanged.get()) {
@@ -143,6 +134,8 @@ public class AnnotationApplier {
                 }
             }
 
+
+            LOG.info("Writing " + (isParentClass ? "parent " : "") + "class: " + className);
             Files.write(path, cu.toString().getBytes());
         }
 
@@ -150,9 +143,42 @@ public class AnnotationApplier {
         final ClassOrInterfaceDeclaration childClass = cu.getClassByName(className).orElseThrow();
         if (!childClass.getExtendedTypes().isEmpty()) {
             final ClassOrInterfaceType resolvedType = childClass.getExtendedTypes().get(0);
+            final String parentPackageName = ClassNameUtils.getPackageName(resolvedType.getNameWithScope());
             final String parentClass = resolvedType.getName().asString();
-            writeAnnotations(entity, outputFolder, parentClass, true, processedClasses);
+
+            // Mark this class as processed
+            processedClasses.put(className, parentClass);
+
+            if (!allFieldsProcessed(entity)) {
+                writeAnnotations(entity, outputFolder, parentPackageName, parentClass, true);
+            }
+        } else {
+            // Mark this class as processed
+            processedClasses.put(className, null);
         }
+    }
+
+    private boolean allFieldsProcessed(final JpaEntity entity) {
+        final List<String> allParentClasses = new ArrayList<>();
+        String clazz = entity.getName();
+        while (processedClasses.get(clazz) != null) {
+            allParentClasses.add(processedClasses.get(clazz));
+            clazz = processedClasses.get(clazz);
+        }
+
+        final List<String> allProcessedFields = new ArrayList<>();
+        allParentClasses.forEach(pc -> {
+            if (processedFields.containsKey(pc)) {
+                allProcessedFields.addAll(processedFields.get(pc));
+            }
+        });
+        getAllFields(entity).forEach(jpaAnnotation -> {
+            if (!jpaAnnotation.isProcessed() &&
+                    allProcessedFields.contains(jpaAnnotation.getName())) {
+                jpaAnnotation.setProcessed(true);
+            }
+        });
+        return getAllFields(entity).stream().allMatch(JpaAnnotation::isProcessed);
     }
 
     private static CompilationUnit parseJava(final Path path) throws IOException {
@@ -166,8 +192,8 @@ public class AnnotationApplier {
         return parser.parse(path).getResult().orElseThrow();
     }
 
-    private void processJpaAnnotation(final FieldDeclaration field, final JpaAnnotation jpaAnnotation, final CompilationUnit cu,
-            final AtomicBoolean hasChanged) {
+    private void processJpaAnnotation(final String className, final FieldDeclaration field, final JpaAnnotation jpaAnnotation,
+            final CompilationUnit cu, final AtomicBoolean hasChanged) {
         if (jpaAnnotation.getType() != null) {
             final String annotationType = ClassNameUtils.getSimpleClassName(
                     HibernateUtils.mapHibernateTypeToJava(jpaAnnotation.getType(), true));
@@ -200,6 +226,16 @@ public class AnnotationApplier {
         addAnnotations(jpaAnnotation.getAnnotations(), field);
         jpaAnnotation.setProcessed(true);
         hasChanged.set(true);
+
+        // Cache processed fields to improve performance
+        final List<String> classProcessedFields;
+        if (processedFields.containsKey(className)) {
+            classProcessedFields = processedFields.get(className);
+        } else {
+            classProcessedFields = new ArrayList<>();
+            processedFields.put(className, classProcessedFields);
+        }
+        classProcessedFields.add(jpaAnnotation.getName());
     }
 
     // This method returns the generic type if present, otherwise the base type

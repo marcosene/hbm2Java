@@ -5,8 +5,6 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
-
 /**
  * Utility class for string manipulation operations.
  * Complements Apache Commons Lang3 StringUtils with project-specific functionality.

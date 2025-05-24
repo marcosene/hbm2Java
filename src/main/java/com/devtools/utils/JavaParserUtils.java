@@ -28,19 +28,20 @@ public final class JavaParserUtils {
      * Searches for a variable name by its type in a Java class file.
      * 
      * @param outputFolder the folder containing the Java source files
-     * @param className the name of the class to search in
+     * @param fullClassName the full name of the class to search in
      * @param type the type of the variable to find
      * @return the variable name if found, null otherwise
      */
-    public static String searchVariableNameByType(final String outputFolder, final String className, final String type) {
-        final String fullClassFilename = FileUtils.findClassPath(new java.io.File(outputFolder), className);
+    public static String searchVariableNameByType(final String outputFolder, final String fullClassName, final String type) {
+        final String fullClassFilename = FileUtils.findClassPath(new java.io.File(outputFolder),
+                ClassNameUtils.getPackageName(fullClassName), ClassNameUtils.getSimpleClassName(fullClassName));
 
         final Path path;
         try {
             path = Paths.get(fullClassFilename);
         } catch (final Exception e) {
-            LOG.error("Invalid path for class: " + className, e);
-            return null;
+            LOG.error("Invalid path for class: " + fullClassName, e);
+            return "";
         }
 
         // Parse the file
@@ -48,8 +49,8 @@ public final class JavaParserUtils {
         try {
             cu = StaticJavaParser.parse(path);
         } catch (final IOException e) {
-            LOG.error("Class " + className + " not found", e);
-            return null;
+            LOG.error("Class " + fullClassName + " not found", e);
+            return "";
         }
         
         final Optional<FieldDeclaration> fieldDeclaration = cu.findAll(FieldDeclaration.class).stream()
