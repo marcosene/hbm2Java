@@ -171,8 +171,15 @@ mvn test
 ### Files Created
 
 - `src/test/java/com/devtools/integration/FullConversionIntegrationTest.java` - Main integration test
-- Comprehensive HBM XML with all supported features
-- Complete set of plain Java entity classes
+- `src/test/resources/integration-test/hbm/comprehensive-mapping.hbm.xml` - Comprehensive HBM mapping file
+- `src/test/resources/integration-test/java-templates/` - Plain Java entity templates:
+  - `Company.java` - Main entity with all features
+  - `PublicCompany.java` - Inheritance subclass
+  - `Employee.java` - Employee entity with relationships
+  - `Department.java` - Department entity with collections
+  - `Address.java` - Dual-purpose entity (standalone/embeddable)
+  - `Project.java` - Many-to-many relationship entity
+- `src/test/resources/integration-test/README.md` - Resource documentation
 - Validation methods for each entity type
 
 This integration test complements the existing 31 unit tests, bringing the total test coverage to 32 tests that comprehensively validate both individual components and the complete conversion workflow.
