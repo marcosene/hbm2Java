@@ -75,9 +75,11 @@ public class AnnotationApplier {
         try {
              path = Paths.get(fullClassFilename);
         } catch (final Exception e) {
-            LOG.warn("Java class not found for " + className + ", generating a new one");
-            final EntityGenerator entityGenerator = new EntityGenerator();
-            entityGenerator.generate(entity, outputFolder);
+            LOG.warn("Java class not found for " + className + (!isParentClass ? ", generating a new one" : ""));
+            if (!isParentClass) {
+                final EntityGenerator entityGenerator = new EntityGenerator();
+                entityGenerator.generate(entity, outputFolder);
+            }
             return;
         }
 

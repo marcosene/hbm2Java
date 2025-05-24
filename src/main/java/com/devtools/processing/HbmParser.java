@@ -418,6 +418,8 @@ public class HbmParser {
 
         if (StringUtils.isNotBlank(relationshipElement.getAttribute(Attributes.ATTR_LAZY))) {
             relationship.setFetch("false".equals(relationshipElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
+        } else if (StringUtils.isNotBlank(relationshipElement.getAttribute(Attributes.ATTR_FETCH))) {
+            relationship.setFetch("join".equals(relationshipElement.getAttribute(Attributes.ATTR_FETCH)) ? "eager" : "lazy");
         }
         relationship.setCascade(cascade, entityDef.getDefaultCascade());
         relationship.setAccess(access);
