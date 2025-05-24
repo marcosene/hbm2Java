@@ -5,7 +5,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import org.apache.commons.lang3.StringUtils;
-import com.devtools.model.jpa.builder.JpaColumnBuilder;
 
 @Getter
 @Setter
@@ -76,9 +75,5 @@ public class JpaColumn extends JpaAnnotation {
         if (StringUtils.isNotBlank(columnDefinition)) {
             this.columnDefinition = columnDefinition;
         }
-    }
-
-    public static JpaColumnBuilder builder() {
-        return new JpaColumnBuilder();
     }
 }

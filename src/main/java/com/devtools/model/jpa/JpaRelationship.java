@@ -7,7 +7,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
-import com.devtools.model.jpa.builder.JpaRelationshipBuilder;
 
 @Getter
 @Setter
@@ -60,9 +59,5 @@ public class JpaRelationship extends JpaAnnotation {
 
     public void addReferencedColumn(final JpaColumn referencedColumn) {
         referencedColumns.add(referencedColumn);
-    }
-
-    public static JpaRelationshipBuilder builder() {
-        return new JpaRelationshipBuilder();
     }
 }

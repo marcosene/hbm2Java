@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
-import com.devtools.model.jpa.builder.JpaEntityBuilder;
+
 import com.devtools.utils.ClassNameUtils;
 
 @Getter
@@ -74,10 +74,6 @@ public class JpaEntity extends JpaAnnotation {
         }
     }
 
-    public JpaDiscriminator getDiscriminator() {
-        return discriminator;
-    }
-
     public JpaDiscriminator getDiscriminator(final boolean create) {
         if (discriminator == null && create) {
             discriminator = new JpaDiscriminator();
@@ -121,9 +117,5 @@ public class JpaEntity extends JpaAnnotation {
 
     public String getPackageName() {
         return ClassNameUtils.getPackageName(name);
-    }
-
-    public static JpaEntityBuilder builder() {
-        return new JpaEntityBuilder();
     }
 }
