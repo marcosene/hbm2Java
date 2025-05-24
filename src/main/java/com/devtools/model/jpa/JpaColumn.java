@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import org.apache.commons.lang3.StringUtils;
+import com.devtools.model.jpa.builder.JpaColumnBuilder;
 
 @Getter
 @Setter

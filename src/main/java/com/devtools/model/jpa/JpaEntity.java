@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import com.devtools.model.jpa.builder.JpaEntityBuilder;
+import com.devtools.utils.ClassUtils;
 
 @Getter
 @Setter
@@ -43,7 +45,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getName() {
-        return com.devtools.utils.StringUtils.getSimpleClassName(name);
+        return ClassUtils.getSimpleClassName(name);
     }
 
     public void setName(final String className) {
@@ -63,7 +65,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getParentClass() {
-        return com.devtools.utils.StringUtils.getSimpleClassName(parentClass);
+        return ClassUtils.getSimpleClassName(parentClass);
     }
 
     public void setParentClass(final String parentClass) {
@@ -114,7 +116,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getPackageName() {
-        return com.devtools.utils.StringUtils.getPackageName(name);
+        return ClassUtils.getPackageName(name);
     }
 
     public static JpaEntityBuilder builder() {

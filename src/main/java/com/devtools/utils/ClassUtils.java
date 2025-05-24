@@ -1,8 +1,8 @@
 package com.devtools.utils;
 
-public final class StringUtils {
+public final class ClassUtils {
 
-    private StringUtils() {}
+    private ClassUtils() {}
 
     /**
      * Extracts the simple class name from a fully qualified class name.

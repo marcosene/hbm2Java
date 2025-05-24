@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import com.devtools.model.jpa.builder.JpaRelationshipBuilder;
 
 @Getter
 @Setter
