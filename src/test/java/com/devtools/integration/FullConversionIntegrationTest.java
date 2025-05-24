@@ -112,7 +112,7 @@ public class FullConversionIntegrationTest {
         
         // Validate class-level annotations
         assertThat(content).contains("@Entity");
-        assertThat(content).contains("@Table(name = \"companies\")");
+        assertThat(content).contains("@Table(name = \"companies\"");  // Allow for complex table annotation
         assertThat(content).contains("@Cache(usage = CacheConcurrencyStrategy.READ_WRITE)");
         assertThat(content).contains("@Cacheable");
         assertThat(content).contains("@DynamicInsert");
@@ -151,7 +151,7 @@ public class FullConversionIntegrationTest {
         String content = Files.readString(javaDir.resolve("com/example/model/Employee.java"));
         
         assertThat(content).contains("@Entity");
-        assertThat(content).contains("@Table(name = \"employees\")");
+        assertThat(content).contains("@Table(name = \"employees\"");  // Allow for complex table annotation
         assertThat(content).contains("@Cache(usage = CacheConcurrencyStrategy.READ_ONLY)");
         assertThat(content).contains("@Cacheable");
         

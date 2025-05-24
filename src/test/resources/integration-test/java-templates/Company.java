@@ -13,6 +13,7 @@ public class Company {
     private Date foundedDate;
     private BigDecimal revenue;
     private Boolean active;
+    private String registrationNumber;
     private String taxId;
     private Address headquarters;
     private Set<Employee> employees;
@@ -40,6 +41,9 @@ public class Company {
     
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
+    
+    public String getRegistrationNumber() { return registrationNumber; }
+    public void setRegistrationNumber(String registrationNumber) { this.registrationNumber = registrationNumber; }
     
     public String getTaxId() { return taxId; }
     public void setTaxId(String taxId) { this.taxId = taxId; }

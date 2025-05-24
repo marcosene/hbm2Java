@@ -34,9 +34,32 @@
         
         <property name="foundedDate" column="founded_date" type="date"/>
         
-        <property name="revenue" type="big_decimal" precision="15" scale="2"/>
+        <!-- Property with explicit column tag and ALL attributes from Attributes.java -->
+        <property name="revenue" type="big_decimal">
+            <column name="revenue_amount" 
+                    length="15" 
+                    precision="15" 
+                    scale="2" 
+                    not-null="true" 
+                    unique="false" 
+                    unique-key="uk_revenue_tax" 
+                    index="idx_revenue" 
+                    sql-type="DECIMAL(15,2)" 
+                    default="0.00"/>
+        </property>
         
         <property name="active" type="boolean" not-null="true"/>
+        
+        <!-- Another property with column tag for different attributes -->
+        <property name="registrationNumber" type="string">
+            <column name="reg_number" 
+                    length="50" 
+                    not-null="true" 
+                    unique="true" 
+                    index="idx_reg_number" 
+                    default="'PENDING'" 
+                    comment="Company registration number"/>
+        </property>
         
         <!-- Component/Embedded object -->
         <component name="headquarters" class="Address">
@@ -89,7 +112,17 @@
         
         <property name="firstName" column="first_name" length="50" not-null="true"/>
         <property name="lastName" column="last_name" length="50" not-null="true"/>
-        <property name="email" length="100" unique="true"/>
+        
+        <!-- Email with explicit column tag -->
+        <property name="email" type="string">
+            <column name="email_address" 
+                    length="100" 
+                    unique="true" 
+                    not-null="false" 
+                    index="idx_email" 
+                    check="email_address LIKE '%@%'"/>
+        </property>
+        
         <property name="salary" type="big_decimal" precision="10" scale="2"/>
         <property name="hireDate" column="hire_date" type="date"/>
         
@@ -112,7 +145,17 @@
         </id>
         
         <property name="name" column="dept_name" length="100" not-null="true"/>
-        <property name="budget" type="big_decimal" precision="12" scale="2"/>
+        
+        <!-- Budget with explicit column tag and all attributes -->
+        <property name="budget" type="big_decimal">
+            <column name="dept_budget" 
+                    precision="12" 
+                    scale="2" 
+                    not-null="false" 
+                    default="0.00" 
+                    sql-type="DECIMAL(12,2)" 
+                    check="dept_budget >= 0"/>
+        </property>
         
         <!-- Many-to-one back to company -->
         <many-to-one name="company" class="Company" column="company_id"/>
