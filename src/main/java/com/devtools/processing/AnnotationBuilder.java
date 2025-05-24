@@ -87,6 +87,12 @@ public class AnnotationBuilder {
                 }
                 tableAnnotation.append("    }\n");
             }
+            if (jpaEntity.isSecondTable() && jpaEntity.getSecondTableKeys() != null) {
+                tableAnnotation.append(",\n    pkJoinColumns = @javax.persistence.PrimaryKeyJoinColumn(name = \"")
+                        .append(jpaEntity.getSecondTableKeys().getColumnName()).append("\")");
+                tableAnnotation.append(",\n    foreignKey = @javax.persistence.ForeignKey(name = \"")
+                        .append(jpaEntity.getSecondTableKeys().getForeignKey()).append("\")\n");
+            }
             tableAnnotation.append(")");
             jpaEntity.addAnnotation(tableAnnotation.toString());
         }
@@ -436,18 +442,22 @@ public class AnnotationBuilder {
         for (final Map.Entry<String, List<JpaColumn>> entry : attributeOverrides.entrySet()) {
             final StringBuilder columnAnnotation = new StringBuilder();
             columnAnnotation.append("@javax.persistence.AttributeOverrides({\n");
-            JpaColumn varColumn = null;
+
             for (final JpaColumn column : entry.getValue()) {
                 columnAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
                 columnAnnotation.append(Utils.toCamelCase(column.getColumnName()));
                 columnAnnotation.append("\", column = ");
                 columnAnnotation.append(buildColumn(entityDef, column));
                 columnAnnotation.append("),\n");
-                varColumn = column;
             }
             columnAnnotation.append("    })");
-            assert varColumn != null;
-            varColumn.addAnnotation(columnAnnotation.toString());
+
+            for (final JpaColumn column : entry.getValue()) {
+                if (!column.isOptimisticLock()) {
+                    column.addAnnotation("@org.hibernate.annotations.OptimisticLock(excluded = true)");
+                }
+                column.addAnnotation(columnAnnotation.toString());
+            }
         }
     }
 

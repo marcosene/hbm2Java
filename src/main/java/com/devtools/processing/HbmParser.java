@@ -130,6 +130,11 @@ public class HbmParser {
             entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
             entityDef.setSecondTable(true);
 
+            final JpaColumn keyColumn = parseKey(joinElement, null);
+            if (keyColumn != null) {
+                entityDef.setSecondTableKeys(keyColumn);
+            }
+
             parseEntity(entityDef, joinElement, defaultCascade);
         }
 
@@ -489,44 +494,31 @@ public class HbmParser {
             relationship.setFetch("false".equals(collectionElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
         }
 
-        final Element keyElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_KEY);
-        if (keyElement != null) {
-            final JpaColumn keyColumn;
-
-            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_COLUMN))) {
-                keyColumn = new JpaColumn();
-                keyColumn.setName(relationship.getName());
-                keyColumn.setColumnName(keyElement.getAttribute(Attributes.ATTR_COLUMN));
-            } else {
-                final List<JpaColumn> jpaColumns = parseColumns(keyElement, null);
-                keyColumn = jpaColumns.get(0);
-            }
-            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY))) {
-                keyColumn.setForeignKey(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY));
-            }
+        final JpaColumn keyColumn = parseKey(collectionElement, relationship.getName());
+        if (keyColumn != null) {
             relationship.addReferencedColumn(keyColumn);
         }
 
         final Element mapKeyElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_MAP_KEY);
         if (mapKeyElement != null) {
-            final JpaColumn keyColumn = relationship.getReferencedColumns().get(0);
-            keyColumn.setType(HibernateUtils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_TYPE)));
-            keyColumn.setName(mapKeyElement.getAttribute(Attributes.ATTR_COLUMN));
+            final JpaColumn mapKeyColumn = relationship.getReferencedColumns().get(0);
+            mapKeyColumn.setType(HibernateUtils.mapHibernateTypeToJava(mapKeyElement.getAttribute(Attributes.ATTR_TYPE)));
+            mapKeyColumn.setName(mapKeyElement.getAttribute(Attributes.ATTR_COLUMN));
         }
 
         final Element compositeMapkeyElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_COMPOSITE_MAP_KEY);
         if (compositeMapkeyElement != null) {
             final List<Element> keyProperties = DomUtils.getChildrenByTag(compositeMapkeyElement, Tags.TAG_KEY_PROPERTY);
             for (final Element keyProperty : keyProperties) {
-                final JpaColumn keyColumn = new JpaColumn();
-                keyColumn.setType(compositeMapkeyElement.getAttribute(Attributes.ATTR_CLASS));
-                if (StringUtils.isBlank(keyColumn.getType())) {
-                    keyColumn.setType(keyProperty.getAttribute(Attributes.ATTR_TYPE));
+                final JpaColumn compositeMapKeyColumn = new JpaColumn();
+                compositeMapKeyColumn.setType(compositeMapkeyElement.getAttribute(Attributes.ATTR_CLASS));
+                if (StringUtils.isBlank(compositeMapKeyColumn.getType())) {
+                    compositeMapKeyColumn.setType(keyProperty.getAttribute(Attributes.ATTR_TYPE));
                 }
-                keyColumn.setComposite(true);
-                keyColumn.setName(keyProperty.getAttribute(Attributes.ATTR_NAME));
-                keyColumn.setColumnName(keyProperty.getAttribute(Attributes.ATTR_COLUMN));
-                relationship.addReferencedColumn(keyColumn);
+                compositeMapKeyColumn.setComposite(true);
+                compositeMapKeyColumn.setName(keyProperty.getAttribute(Attributes.ATTR_NAME));
+                compositeMapKeyColumn.setColumnName(keyProperty.getAttribute(Attributes.ATTR_COLUMN));
+                relationship.addReferencedColumn(compositeMapKeyColumn);
             }
         }
 
@@ -536,6 +528,30 @@ public class HbmParser {
         if (indexElement != null) {
             relationship.setOrderColumn(indexElement.getAttribute(Attributes.ATTR_COLUMN));
         }
+    }
+
+    private JpaColumn parseKey(final Element parentElement, final String name) {
+        final Element keyElement = DomUtils.getFirstChildByTag(parentElement, Tags.TAG_KEY);
+        if (keyElement != null) {
+            JpaColumn keyColumn = null;
+
+            if (StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_COLUMN))) {
+                keyColumn = new JpaColumn();
+                keyColumn.setName(name);
+                keyColumn.setColumnName(keyElement.getAttribute(Attributes.ATTR_COLUMN));
+            } else {
+                final List<JpaColumn> jpaColumns = parseColumns(keyElement, null);
+                if (!jpaColumns.isEmpty()) {
+                    keyColumn = jpaColumns.get(0);
+                }
+            }
+            if (keyColumn != null &&
+                    StringUtils.isNotBlank(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY))) {
+                keyColumn.setForeignKey(keyElement.getAttribute(Attributes.ATTR_FOREIGN_KEY));
+            }
+            return keyColumn;
+        }
+        return null;
     }
 
     private void parseEmbeddedFields(final Element element, final JpaEntity entityDef) {

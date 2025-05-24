@@ -23,6 +23,7 @@ public class JpaEntity extends JpaAnnotation {
     private boolean immutable = false;
     private boolean embeddable = false;
     private boolean secondTable = false;
+    private JpaColumn secondTableKeys;
     private String cacheUsage;
 
     private JpaPrimaryKey primaryKey;

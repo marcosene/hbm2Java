@@ -23,6 +23,7 @@ import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.Utils;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
+import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
@@ -36,7 +37,6 @@ import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.resolution.Resolvable;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -76,12 +76,7 @@ public class AnnotationApplier {
         }
 
         // Parse the file
-        final CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver());
-        final JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-        StaticJavaParser.getConfiguration().setSymbolResolver(symbolSolver);
-
-        final CompilationUnit cu = StaticJavaParser.parse(path);
+        final CompilationUnit cu = parseJava(path);
         final ClassOrInterfaceDeclaration clazz = cu.findAll(ClassOrInterfaceDeclaration.class).get(0);
         final AtomicBoolean hasChanged = new AtomicBoolean(false);
 
@@ -132,6 +127,7 @@ public class AnnotationApplier {
                     insertPrimaryKey(primaryKey, clazz, cu);
                 }
             }
+
             Files.write(path, cu.toString().getBytes());
         }
 
@@ -144,6 +140,17 @@ public class AnnotationApplier {
         }
     }
 
+    private static CompilationUnit parseJava(final Path path) throws IOException {
+        final CombinedTypeSolver typeSolver = new CombinedTypeSolver();
+        typeSolver.add(new ReflectionTypeSolver());
+
+        final JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
+        final ParserConfiguration config = new ParserConfiguration().setSymbolResolver(symbolSolver);
+        final JavaParser parser = new JavaParser(config);
+
+        return parser.parse(path).getResult().orElseThrow();
+    }
+
     private void processJpaAnnotation(final FieldDeclaration field, final JpaAnnotation jpaAnnotation, final CompilationUnit cu,
             final AtomicBoolean hasChanged) {
         if (jpaAnnotation.getType() != null) {
@@ -153,7 +160,8 @@ public class AnnotationApplier {
 
             // Add @Type when the annotation type is different of the field return type
             if (!HibernateUtils.isPrimitiveType(fieldType) && !"Map".equals(fieldType) &&
-                    !annotationType.equals(fieldType)) {
+                    !annotationType.equals(fieldType) &&
+                    jpaAnnotation.getAnnotations().stream().noneMatch(ann -> ann.contains("AttributeOverrides"))) {
                 final StringBuilder typeAnnotation = new StringBuilder();
                 typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaAnnotation.getType(false))
                         .append("\"");
@@ -188,10 +196,8 @@ public class AnnotationApplier {
             }
         }
         try {
-            if (type instanceof Resolvable) {
-                final ResolvedType resolved = type.resolve();
-                return resolved.describe(); // Fully qualified name
-            }
+            final ResolvedType resolved = type.resolve();
+            return resolved.describe(); // Fully qualified name
         } catch (final Exception ignored) {}
         return type.asString();
     }
@@ -227,7 +233,7 @@ public class AnnotationApplier {
 
     private void addAnnotations(final List<String> newAnnotations, final NodeWithAnnotations<?> node) {
         for (final String annotationString : newAnnotations) {
-            final AnnotationExpr annotation = getAnnotation(annotationString);
+            final AnnotationExpr annotation = toAnnotationExpr(annotationString);
             final String annotationName = annotation.getNameAsString();
 
             // Check if the node already has the annotation
@@ -240,7 +246,7 @@ public class AnnotationApplier {
         }
     }
 
-    private AnnotationExpr getAnnotation(final String annotationString) {
+    private AnnotationExpr toAnnotationExpr(final String annotationString) {
         final String dummyClass = annotationString + "\npublic class Dummy {}";
 
         final ParseResult<CompilationUnit> parseResult = JAVA_PARSER.parse(dummyClass);
