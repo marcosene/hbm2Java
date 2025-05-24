@@ -18,7 +18,8 @@ import com.devtools.processing.AnnotationApplier;
 import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.EntityGenerator;
 import com.devtools.processing.HbmParser;
-import com.devtools.utils.Utils;
+import com.devtools.utils.FileUtils;
+import com.devtools.utils.ClassNameUtils;
 
 /**
  * The {@code Hbm2Java} class facilitates the conversion of Hibernate HBM XML files into
@@ -121,7 +122,7 @@ public class Hbm2Java {
     private static void processConversion(final String inputFolder, final String outputFolder, 
                                         final boolean annotateExisting) throws Exception {
         
-        if (Utils.createFolder(outputFolder)) {
+        if (FileUtils.createDirectories(outputFolder)) {
             throw new RuntimeException("Failed to create or validate output folder: " + outputFolder);
         }
 
@@ -316,7 +317,7 @@ public class Hbm2Java {
             }
             
             final String foreignKey = jpaRelationship.getReferencedColumns().get(0).getForeignKey();
-            final JpaEntity inverseEntity = jpaEntityMap.get(Utils.getSimpleClass(jpaRelationship.getReturnType()));
+            final JpaEntity inverseEntity = jpaEntityMap.get(ClassNameUtils.getSimpleClassName(jpaRelationship.getReturnType()));
             
             if (inverseEntity != null) {
                 updateInverseRelationshipForeignKey(inverseEntity, jpaEntity, foreignKey);
@@ -360,7 +361,7 @@ public class Hbm2Java {
 
     private static void createOrGetEmbeddableEntity(final Map<String, JpaEntity> jpaEntityMap, 
                                                   final String columnType) {
-        final String embeddableClassName = Utils.getSimpleClass(columnType);
+        final String embeddableClassName = ClassNameUtils.getSimpleClassName(columnType);
         
         if (jpaEntityMap.containsKey(embeddableClassName)) {
             return; // Already exists

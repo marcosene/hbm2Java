@@ -29,7 +29,7 @@ import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
 import com.devtools.utils.DomUtils;
 import com.devtools.utils.HibernateUtils;
-import com.devtools.utils.Utils;
+import com.devtools.utils.FileUtils;
 
 public class HbmParser {
 
@@ -47,7 +47,7 @@ public class HbmParser {
             final JpaEntity queriesEntity = new JpaEntity();
             parseQueries(root, queriesEntity);
             if (!queriesEntity.getNamedQueries().isEmpty()) {
-                final String fileName = Utils.getFileNameNoExtensions(filePath);
+                final String fileName = FileUtils.getFileNameNoExtensions(filePath);
                 queriesEntity.setName(fileName);
                 jpaBase.addEntity(queriesEntity);
             }
