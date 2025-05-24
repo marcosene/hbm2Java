@@ -28,8 +28,8 @@ import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
 import com.devtools.utils.DomUtils;
-import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.FileUtils;
+import com.devtools.utils.HibernateUtils;
 
 public class HbmParser {
 

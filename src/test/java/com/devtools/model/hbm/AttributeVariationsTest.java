@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.devtools.model.jpa.JpaBase;
-import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.HbmParser;
 
 /**
@@ -27,12 +26,10 @@ public class AttributeVariationsTest {
     Path tempDir;
     
     private HbmParser parser;
-    private AnnotationBuilder annotationBuilder;
 
     @BeforeEach
     void setUp() {
         parser = new HbmParser();
-        annotationBuilder = new AnnotationBuilder(tempDir.toString());
     }
 
     /**
@@ -40,12 +37,12 @@ public class AttributeVariationsTest {
      */
     @Test
     void testClassTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
-                <class name="ComplexEntity" 
+                <class name="ComplexEntity"
                        table="complex_table"
                        dynamic-insert="true"
                        dynamic-update="true"
@@ -58,8 +55,8 @@ public class AttributeVariationsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getName()).isEqualTo("ComplexEntity");
         assertThat(entity.getTable()).isEqualTo("complex_table");
@@ -74,12 +71,12 @@ public class AttributeVariationsTest {
      */
     @Test
     void testPropertyAccessTypes() throws Exception {
-        String[] accessTypes = {"field", "property"};
+        final String[] accessTypes = {"field", "property"};
         
-        for (String accessType : accessTypes) {
-            String hbmContent = String.format("""
+        for (final String accessType : accessTypes) {
+            final String hbmContent = String.format("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                     "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
                 <hibernate-mapping>
                     <class name="AccessTestEntity" table="access_test">
@@ -91,12 +88,10 @@ public class AttributeVariationsTest {
                 </hibernate-mapping>
                 """, accessType);
 
-            JpaBase jpaBase = parseHbmContent(hbmContent);
-            JpaEntity entity = jpaBase.getEntities().get(0);
+            final JpaBase jpaBase = parseHbmContent(hbmContent);
+            final JpaEntity entity = jpaBase.getEntities().get(0);
             
             assertThat(entity.getColumns()).hasSize(1);
-            JpaColumn column = entity.getColumns().get(0);
-            // Access type is not stored as a separate field in JpaColumn
         }
     }
 
@@ -105,15 +100,15 @@ public class AttributeVariationsTest {
      */
     @Test
     void testCascadeVariations() throws Exception {
-        String[] cascadeTypes = {
+        final String[] cascadeTypes = {
             "all", "save-update", "delete", "persist", "merge", 
             "refresh", "replicate", "lock", "evict"
         };
         
-        for (String cascadeType : cascadeTypes) {
-            String hbmContent = String.format("""
+        for (final String cascadeType : cascadeTypes) {
+            final String hbmContent = String.format("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                     "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
                 <hibernate-mapping>
                     <class name="CascadeTestEntity" table="cascade_test">
@@ -125,11 +120,11 @@ public class AttributeVariationsTest {
                 </hibernate-mapping>
                 """, cascadeType);
 
-            JpaBase jpaBase = parseHbmContent(hbmContent);
-            JpaEntity entity = jpaBase.getEntities().get(0);
+            final JpaBase jpaBase = parseHbmContent(hbmContent);
+            final JpaEntity entity = jpaBase.getEntities().get(0);
             
             assertThat(entity.getRelationships()).hasSize(1);
-            JpaRelationship relationship = entity.getRelationships().get(0);
+            final JpaRelationship relationship = entity.getRelationships().get(0);
             assertThat(relationship.getCascade()).isEqualTo(cascadeType);
         }
     }
@@ -139,18 +134,18 @@ public class AttributeVariationsTest {
      */
     @Test
     void testFetchVariations() throws Exception {
-        String[][] fetchMappings = {
+        final String[][] fetchMappings = {
             {"true", "lazy"},
             {"false", "eager"}
         };
         
-        for (String[] mapping : fetchMappings) {
-            String lazyValue = mapping[0];
-            String expectedFetch = mapping[1];
+        for (final String[] mapping : fetchMappings) {
+            final String lazyValue = mapping[0];
+            final String expectedFetch = mapping[1];
             
-            String hbmContent = String.format("""
+            final String hbmContent = String.format("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                     "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
                 <hibernate-mapping>
                     <class name="FetchTestEntity" table="fetch_test">
@@ -162,11 +157,11 @@ public class AttributeVariationsTest {
                 </hibernate-mapping>
                 """, lazyValue);
 
-            JpaBase jpaBase = parseHbmContent(hbmContent);
-            JpaEntity entity = jpaBase.getEntities().get(0);
+            final JpaBase jpaBase = parseHbmContent(hbmContent);
+            final JpaEntity entity = jpaBase.getEntities().get(0);
             
             assertThat(entity.getRelationships()).hasSize(1);
-            JpaRelationship relationship = entity.getRelationships().get(0);
+            final JpaRelationship relationship = entity.getRelationships().get(0);
             assertThat(relationship.getFetch()).isEqualTo(expectedFetch);
         }
     }
@@ -176,9 +171,9 @@ public class AttributeVariationsTest {
      */
     @Test
     void testColumnWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="ColumnTestEntity" table="column_test">
@@ -201,11 +196,11 @@ public class AttributeVariationsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(1);
-        JpaColumn column = entity.getColumns().get(0);
+        final JpaColumn column = entity.getColumns().get(0);
         
         assertThat(column.getName()).isEqualTo("complexField");
         assertThat(column.getColumnName()).isEqualTo("complex_column");
@@ -225,9 +220,9 @@ public class AttributeVariationsTest {
      */
     @Test
     void testGeneratorWithParameters() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="GeneratorParamEntity" table="generator_param_test">
@@ -241,8 +236,8 @@ public class AttributeVariationsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getPrimaryKey()).isNotNull();
         assertThat(entity.getPrimaryKey().getGeneratorType()).isEqualTo("SEQUENCE");
@@ -255,9 +250,9 @@ public class AttributeVariationsTest {
      */
     @Test
     void testUnionSubclass() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="BaseEntity" table="base_table">
@@ -265,19 +260,19 @@ public class AttributeVariationsTest {
                         <generator class="identity"/>
                     </id>
                 </class>
-                <union-subclass name="UnionSubEntity" 
-                               extends="BaseEntity" 
+                <union-subclass name="UnionSubEntity"
+                               extends="BaseEntity"
                                table="union_sub_table">
                     <property name="unionProperty" type="string"/>
                 </union-subclass>
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
         
         assertThat(jpaBase.getEntities()).hasSize(2);
         
-        JpaEntity unionSubEntity = jpaBase.getEntities().stream()
+        final JpaEntity unionSubEntity = jpaBase.getEntities().stream()
             .filter(e -> "UnionSubEntity".equals(e.getName()))
             .findFirst().orElseThrow();
             
@@ -292,9 +287,9 @@ public class AttributeVariationsTest {
      */
     @Test
     void testPropertyWithOptimisticLock() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="OptimisticEntity" table="optimistic_test">
@@ -307,17 +302,17 @@ public class AttributeVariationsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(2);
         
-        JpaColumn excludedColumn = entity.getColumns().stream()
+        final JpaColumn excludedColumn = entity.getColumns().stream()
             .filter(c -> "excludedField".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(excludedColumn.isOptimisticLock()).isFalse();
         
-        JpaColumn includedColumn = entity.getColumns().stream()
+        final JpaColumn includedColumn = entity.getColumns().stream()
             .filter(c -> "includedField".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(includedColumn.isOptimisticLock()).isTrue();
@@ -328,9 +323,9 @@ public class AttributeVariationsTest {
      */
     @Test
     void testTypeWithParameters() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="TypeTestEntity" table="type_test">
@@ -347,11 +342,11 @@ public class AttributeVariationsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(1);
-        JpaColumn column = entity.getColumns().get(0);
+        final JpaColumn column = entity.getColumns().get(0);
         
         assertThat(column.getName()).isEqualTo("customField");
         // The type should be overridden by the nested type element
@@ -363,16 +358,16 @@ public class AttributeVariationsTest {
      */
     @Test
     void testRelationshipWithConstraints() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="ConstraintTestEntity" table="constraint_test">
                     <id name="id" type="long">
                         <generator class="identity"/>
                     </id>
-                    <many-to-one name="related" 
+                    <many-to-one name="related"
                                  class="RelatedEntity"
                                  column="related_id"
                                  not-null="true"
@@ -384,18 +379,18 @@ public class AttributeVariationsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("related");
         assertThat(relationship.getType()).isEqualTo("RelatedEntity");
         
         // Check referenced column constraints
         assertThat(relationship.getReferencedColumns()).hasSize(1);
-        JpaColumn refColumn = relationship.getReferencedColumns().get(0);
+        final JpaColumn refColumn = relationship.getReferencedColumns().get(0);
         assertThat(refColumn.getColumnName()).isEqualTo("related_id");
         assertThat(refColumn.isNullable()).isTrue(); // not-null attribute not implemented for relationships
         assertThat(refColumn.isUnique()).isFalse(); // unique attribute not implemented for relationships
@@ -405,9 +400,9 @@ public class AttributeVariationsTest {
     }
 
     // Helper method to parse HBM content
-    private JpaBase parseHbmContent(String hbmContent) throws Exception {
-        File tempFile = tempDir.resolve("test.hbm.xml").toFile();
-        try (FileWriter writer = new FileWriter(tempFile)) {
+    private JpaBase parseHbmContent(final String hbmContent) throws Exception {
+        final File tempFile = tempDir.resolve("test.hbm.xml").toFile();
+        try (final FileWriter writer = new FileWriter(tempFile)) {
             writer.write(hbmContent);
         }
         return parser.parse(tempFile.getAbsolutePath());

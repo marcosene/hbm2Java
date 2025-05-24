@@ -1,6 +1,7 @@
 package com.devtools.utils;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -9,7 +10,6 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
-
 import org.joda.time.LocalDate;
 import org.joda.time.LocalDateTime;
 import org.joda.time.LocalTime;
@@ -61,10 +61,11 @@ public final class HibernateUtils {
             case "string", "text", "character", "char" -> String.class;
             case "integer", "int" -> Integer.class;
             case "long", "big_integer" -> Long.class;
+            case "big_decimal" -> BigDecimal.class;
             case "short" -> Short.class;
             case "byte" -> Byte.class;
             case "boolean", "yes_no", "numeric_boolean" -> Boolean.class;
-            case "double", "float", "big_decimal", "decimal" -> Double.class;
+            case "double", "float", "decimal" -> Double.class;
             case "date", "timestamp", "time" -> Date.class;
             case "localdate" -> LocalDate.class;
             case "localdatetime" -> LocalDateTime.class;

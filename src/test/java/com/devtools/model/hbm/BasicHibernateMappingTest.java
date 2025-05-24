@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.devtools.model.jpa.JpaBase;
-import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.HbmParser;
 
 /**
@@ -27,12 +26,10 @@ public class BasicHibernateMappingTest {
     Path tempDir;
     
     private HbmParser parser;
-    private AnnotationBuilder annotationBuilder;
 
     @BeforeEach
     void setUp() {
         parser = new HbmParser();
-        annotationBuilder = new AnnotationBuilder(tempDir.toString());
     }
 
     /**
@@ -40,9 +37,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testBasicClassTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="TestEntity" table="test_table">
@@ -54,10 +51,10 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
         
         assertThat(jpaBase.getEntities()).hasSize(1);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getName()).isEqualTo("TestEntity");
         assertThat(entity.getTable()).isEqualTo("test_table");
@@ -72,9 +69,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testPropertyTagTypes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="TypeTestEntity" table="type_test">
@@ -89,27 +86,27 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(4);
         
-        JpaColumn stringCol = entity.getColumns().stream()
+        final JpaColumn stringCol = entity.getColumns().stream()
             .filter(c -> "stringProp".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(stringCol.getType()).isEqualTo("string");
         
-        JpaColumn intCol = entity.getColumns().stream()
+        final JpaColumn intCol = entity.getColumns().stream()
             .filter(c -> "intProp".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(intCol.getType()).isEqualTo("int");
         
-        JpaColumn boolCol = entity.getColumns().stream()
+        final JpaColumn boolCol = entity.getColumns().stream()
             .filter(c -> "boolProp".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(boolCol.getType()).isEqualTo("boolean");
         
-        JpaColumn dateCol = entity.getColumns().stream()
+        final JpaColumn dateCol = entity.getColumns().stream()
             .filter(c -> "dateProp".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(dateCol.getType()).isEqualTo("date");
@@ -120,9 +117,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testColumnTagAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="ColumnTestEntity" table="column_test">
@@ -136,11 +133,11 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(1);
-        JpaColumn column = entity.getColumns().get(0);
+        final JpaColumn column = entity.getColumns().get(0);
         
         assertThat(column.getName()).isEqualTo("description");
         assertThat(column.getColumnName()).isEqualTo("desc_column");
@@ -154,20 +151,20 @@ public class BasicHibernateMappingTest {
     @Test
     void testGeneratorVariations() throws Exception {
         // Test known generators that map to specific JPA types
-        String[][] generatorMappings = {
+        final String[][] generatorMappings = {
             {"identity", "IDENTITY"},
             {"sequence", "SEQUENCE"},
             {"increment", "AUTO"},
             {"native", "AUTO"}
         };
         
-        for (String[] mapping : generatorMappings) {
-            String hibernateGenerator = mapping[0];
-            String expectedJpaType = mapping[1];
+        for (final String[] mapping : generatorMappings) {
+            final String hibernateGenerator = mapping[0];
+            final String expectedJpaType = mapping[1];
             
-            String hbmContent = String.format("""
+            final String hbmContent = String.format("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                     "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
                 <hibernate-mapping>
                     <class name="GeneratorTestEntity" table="generator_test">
@@ -178,19 +175,19 @@ public class BasicHibernateMappingTest {
                 </hibernate-mapping>
                 """, hibernateGenerator);
 
-            JpaBase jpaBase = parseHbmContent(hbmContent);
-            JpaEntity entity = jpaBase.getEntities().get(0);
+            final JpaBase jpaBase = parseHbmContent(hbmContent);
+            final JpaEntity entity = jpaBase.getEntities().get(0);
             
             assertThat(entity.getPrimaryKey()).isNotNull();
             assertThat(entity.getPrimaryKey().getGeneratorType()).isEqualTo(expectedJpaType);
         }
         
         // Test unknown generators that map to GENERATOR
-        String[] unknownGenerators = {"uuid", "assigned", "custom"};
-        for (String generator : unknownGenerators) {
-            String hbmContent = String.format("""
+        final String[] unknownGenerators = {"uuid", "assigned", "custom"};
+        for (final String generator : unknownGenerators) {
+            final String hbmContent = String.format("""
                 <?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+                <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                     "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
                 <hibernate-mapping>
                     <class name="GeneratorTestEntity" table="generator_test">
@@ -201,8 +198,8 @@ public class BasicHibernateMappingTest {
                 </hibernate-mapping>
                 """, generator);
 
-            JpaBase jpaBase = parseHbmContent(hbmContent);
-            JpaEntity entity = jpaBase.getEntities().get(0);
+            final JpaBase jpaBase = parseHbmContent(hbmContent);
+            final JpaEntity entity = jpaBase.getEntities().get(0);
             
             assertThat(entity.getPrimaryKey()).isNotNull();
             assertThat(entity.getPrimaryKey().getGeneratorType()).isEqualTo("GENERATOR");
@@ -214,9 +211,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testBasicManyToOneRelationship() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="OrderEntity" table="orders">
@@ -228,11 +225,11 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("customer");
         assertThat(relationship.getType()).isEqualTo("CustomerEntity");
@@ -244,9 +241,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testBasicOneToManyCollection() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="CustomerEntity" table="customers">
@@ -261,11 +258,11 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("orders");
         assertThat(relationship.getType()).isEqualTo("OrderEntity");
@@ -278,9 +275,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testDiscriminatorTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="BaseEntity" table="base_table">
@@ -294,8 +291,8 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getDiscriminator(false)).isNotNull();
         assertThat(entity.getDiscriminator(false).getColumn()).isEqualTo("entity_type");
@@ -307,9 +304,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testVersionTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="VersionedEntity" table="versioned_table">
@@ -323,11 +320,11 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(1);
-        JpaColumn versionColumn = entity.getColumns().get(0);
+        final JpaColumn versionColumn = entity.getColumns().get(0);
         
         assertThat(versionColumn.getName()).isEqualTo("version");
         assertThat(versionColumn.getType()).isEqualTo("int");
@@ -339,9 +336,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testCacheTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="CachedEntity" table="cached_table">
@@ -353,8 +350,8 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getCacheUsage()).isEqualTo("read-write");
     }
@@ -364,9 +361,9 @@ public class BasicHibernateMappingTest {
      */
     @Test
     void testSubclassTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="BaseEntity" table="base_table">
@@ -380,11 +377,11 @@ public class BasicHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
         
         assertThat(jpaBase.getEntities()).hasSize(2);
         
-        JpaEntity subEntity = jpaBase.getEntities().stream()
+        final JpaEntity subEntity = jpaBase.getEntities().stream()
             .filter(e -> "SubEntity".equals(e.getName()))
             .findFirst().orElseThrow();
             
@@ -395,9 +392,9 @@ public class BasicHibernateMappingTest {
     }
 
     // Helper method to parse HBM content
-    private JpaBase parseHbmContent(String hbmContent) throws Exception {
-        File tempFile = tempDir.resolve("test.hbm.xml").toFile();
-        try (FileWriter writer = new FileWriter(tempFile)) {
+    private JpaBase parseHbmContent(final String hbmContent) throws Exception {
+        final File tempFile = tempDir.resolve("test.hbm.xml").toFile();
+        try (final FileWriter writer = new FileWriter(tempFile)) {
             writer.write(hbmContent);
         }
         return parser.parse(tempFile.getAbsolutePath());

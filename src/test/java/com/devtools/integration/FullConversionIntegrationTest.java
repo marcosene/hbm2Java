@@ -2,13 +2,10 @@ package com.devtools.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +15,7 @@ import com.devtools.processing.ConversionProcessor;
 
 /**
  * Integration test that validates the complete HBM to JPA conversion process.
- * 
+ * <p>
  * This test creates a comprehensive HBM XML file containing all supported tags and attributes,
  * creates corresponding plain Java entity classes, runs the conversion process, and validates
  * that the correct JPA annotations were generated.
@@ -51,8 +48,8 @@ public class FullConversionIntegrationTest {
     /**
      * Reads content from a resource file.
      */
-    private String readResourceFile(String resourcePath) throws IOException {
-        try (InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+    private String readResourceFile(final String resourcePath) throws IOException {
+        try (final InputStream inputStream = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
             if (inputStream == null) {
                 throw new IOException("Resource not found: " + resourcePath);
             }
@@ -78,37 +75,37 @@ public class FullConversionIntegrationTest {
     }
 
     private void createComprehensiveHbmFile() throws IOException {
-        String hbmContent = readResourceFile("integration-test/hbm/comprehensive-mapping.hbm.xml");
+        final String hbmContent = readResourceFile("integration-test/hbm/comprehensive-mapping.hbm.xml");
         Files.writeString(hbmDir.resolve("comprehensive-mapping.hbm.xml"), hbmContent);
     }
 
     private void createPlainJavaEntities() throws IOException {
         // Create package directory structure
-        Path packageDir = javaDir.resolve("com/example/model");
+        final Path packageDir = javaDir.resolve("com/example/model");
         Files.createDirectories(packageDir);
         
         // Read and write each entity class from resource files
-        String companyClass = readResourceFile("integration-test/java-templates/Company.java");
+        final String companyClass = readResourceFile("integration-test/java-templates/Company.java");
         Files.writeString(packageDir.resolve("Company.java"), companyClass);
         
-        String publicCompanyClass = readResourceFile("integration-test/java-templates/PublicCompany.java");
+        final String publicCompanyClass = readResourceFile("integration-test/java-templates/PublicCompany.java");
         Files.writeString(packageDir.resolve("PublicCompany.java"), publicCompanyClass);
         
-        String employeeClass = readResourceFile("integration-test/java-templates/Employee.java");
+        final String employeeClass = readResourceFile("integration-test/java-templates/Employee.java");
         Files.writeString(packageDir.resolve("Employee.java"), employeeClass);
         
-        String departmentClass = readResourceFile("integration-test/java-templates/Department.java");
+        final String departmentClass = readResourceFile("integration-test/java-templates/Department.java");
         Files.writeString(packageDir.resolve("Department.java"), departmentClass);
         
-        String addressClass = readResourceFile("integration-test/java-templates/Address.java");
+        final String addressClass = readResourceFile("integration-test/java-templates/Address.java");
         Files.writeString(packageDir.resolve("Address.java"), addressClass);
         
-        String projectClass = readResourceFile("integration-test/java-templates/Project.java");
+        final String projectClass = readResourceFile("integration-test/java-templates/Project.java");
         Files.writeString(packageDir.resolve("Project.java"), projectClass);
     }
 
     private void validateCompanyEntityAnnotations() throws IOException {
-        String content = Files.readString(javaDir.resolve("com/example/model/Company.java"));
+        final String content = Files.readString(javaDir.resolve("com/example/model/Company.java"));
         
         // Validate class-level annotations
         assertThat(content).contains("@Entity");
@@ -148,7 +145,7 @@ public class FullConversionIntegrationTest {
     }
 
     private void validateEmployeeEntityAnnotations() throws IOException {
-        String content = Files.readString(javaDir.resolve("com/example/model/Employee.java"));
+        final String content = Files.readString(javaDir.resolve("com/example/model/Employee.java"));
         
         assertThat(content).contains("@Entity");
         assertThat(content).contains("@Table(name = \"employees\"");  // Allow for complex table annotation
@@ -175,7 +172,7 @@ public class FullConversionIntegrationTest {
     }
 
     private void validateAddressEntityAnnotations() throws IOException {
-        String content = Files.readString(javaDir.resolve("com/example/model/Address.java"));
+        final String content = Files.readString(javaDir.resolve("com/example/model/Address.java"));
         
         assertThat(content).contains("@Entity");
         assertThat(content).contains("@Table(name = \"addresses\")");
@@ -191,7 +188,7 @@ public class FullConversionIntegrationTest {
     }
 
     private void validateDepartmentEntityAnnotations() throws IOException {
-        String content = Files.readString(javaDir.resolve("com/example/model/Department.java"));
+        final String content = Files.readString(javaDir.resolve("com/example/model/Department.java"));
         
         assertThat(content).contains("@Entity");
         assertThat(content).contains("@Table(name = \"departments\")");
@@ -210,7 +207,7 @@ public class FullConversionIntegrationTest {
     }
 
     private void validateProjectEntityAnnotations() throws IOException {
-        String content = Files.readString(javaDir.resolve("com/example/model/Project.java"));
+        final String content = Files.readString(javaDir.resolve("com/example/model/Project.java"));
         
         assertThat(content).contains("@Entity");
         assertThat(content).contains("@Table(name = \"projects\")");

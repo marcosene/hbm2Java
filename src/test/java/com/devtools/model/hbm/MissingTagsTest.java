@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.devtools.model.jpa.JpaBase;
-import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.HbmParser;
 
 /**
@@ -27,12 +26,10 @@ class MissingTagsTest {
     Path tempDir;
 
     private HbmParser parser;
-    private AnnotationBuilder annotationBuilder;
 
     @BeforeEach
     void setUp() {
         parser = new HbmParser();
-        annotationBuilder = new AnnotationBuilder("test-output");
     }
 
     /**
@@ -42,7 +39,7 @@ class MissingTagsTest {
      */
     @Test
     void testColumnTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -52,9 +49,9 @@ class MissingTagsTest {
                         <generator class="identity"/>
                     </id>
                     <property name="description" type="string">
-                        <column name="desc_column" 
-                                length="500" 
-                                not-null="true" 
+                        <column name="desc_column"
+                                length="500"
+                                not-null="true"
                                 index="idx_desc"
                                 unique="true"
                                 default="'default_value'"
@@ -67,9 +64,9 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
-        JpaColumn column = entity.getColumns().stream()
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaColumn column = entity.getColumns().stream()
             .filter(c -> "description".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(column).isNotNull();
@@ -88,7 +85,7 @@ class MissingTagsTest {
      */
     @Test
     void testJoinTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -106,8 +103,8 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Should generate @SecondaryTable annotation
         // This test documents expected behavior - implementation may be missing
@@ -115,13 +112,11 @@ class MissingTagsTest {
         assertThat(entity.getTable()).isEqualTo("main_table");
         
         // Check if additionalInfo property exists
-        JpaColumn additionalInfo = entity.getColumns().stream()
-            .filter(c -> "additionalInfo".equals(c.getName()))
-            .findFirst().orElse(null);
-        
-        if (additionalInfo != null) {
-            assertThat(additionalInfo.getColumnName()).isEqualTo("add_info");
-        }
+        entity.getColumns().stream()
+                .filter(c -> "additionalInfo".equals(c.getName()))
+                .findFirst().ifPresent(
+                        additionalInfo -> assertThat(additionalInfo.getColumnName()).isEqualTo("add_info"));
+
     }
 
     /**
@@ -131,7 +126,7 @@ class MissingTagsTest {
      */
     @Test
     void testPropertiesTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -148,16 +143,16 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Should handle property grouping with unique constraint
         assertThat(entity.getName()).isEqualTo("PropertiesTestEntity");
         
         // Check that grouped properties exist
-        boolean hasFirstName = entity.getColumns().stream()
+        final boolean hasFirstName = entity.getColumns().stream()
             .anyMatch(c -> "firstName".equals(c.getName()));
-        boolean hasEmail = entity.getColumns().stream()
+        final boolean hasEmail = entity.getColumns().stream()
             .anyMatch(c -> "email".equals(c.getName()));
             
         assertThat(hasFirstName).isTrue();
@@ -171,7 +166,7 @@ class MissingTagsTest {
      */
     @Test
     void testDiscriminatorTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -189,8 +184,8 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity baseEntity = jpaBase.getEntities().stream()
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity baseEntity = jpaBase.getEntities().stream()
             .filter(e -> "DiscriminatorTestEntity".equals(e.getName()))
             .findFirst().orElseThrow();
         
@@ -210,7 +205,7 @@ class MissingTagsTest {
      */
     @Test
     void testMapKeyTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -228,14 +223,14 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Should handle map key configuration
         assertThat(entity.getName()).isEqualTo("MapKeyTestEntity");
         
         // Check if map relationship exists
-        boolean hasMapRelationship = entity.getRelationships().stream()
+        final boolean hasMapRelationship = entity.getRelationships().stream()
             .anyMatch(r -> "attributes".equals(r.getName()));
         assertThat(hasMapRelationship).isTrue();
     }
@@ -247,7 +242,7 @@ class MissingTagsTest {
      */
     @Test
     void testCompositeMapKeyTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -268,13 +263,13 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Should handle composite map key
         assertThat(entity.getName()).isEqualTo("CompositeKeyTestEntity");
         
-        boolean hasComplexMap = entity.getRelationships().stream()
+        final boolean hasComplexMap = entity.getRelationships().stream()
             .anyMatch(r -> "complexMap".equals(r.getName()));
         assertThat(hasComplexMap).isTrue();
     }
@@ -285,7 +280,7 @@ class MissingTagsTest {
      */
     @Test
     void testKeyPropertyTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -306,26 +301,26 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Should handle key properties within composite-map-key
         assertThat(entity.getName()).isEqualTo("KeyPropertyTestEntity");
         
         // Check if map relationship exists
-        boolean hasComplexMap = entity.getRelationships().stream()
+        final boolean hasComplexMap = entity.getRelationships().stream()
             .anyMatch(r -> "complexMap".equals(r.getName()));
         assertThat(hasComplexMap).isTrue();
         
         // Check if composite map key columns exist
-        JpaRelationship mapRel = entity.getRelationships().stream()
+        final JpaRelationship mapRel = entity.getRelationships().stream()
             .filter(r -> "complexMap".equals(r.getName()))
             .findFirst().orElse(null);
         
         if (mapRel != null && !mapRel.getReferencedColumns().isEmpty()) {
             // Should have composite key columns
-            boolean hasCompositeColumns = mapRel.getReferencedColumns().stream()
-                .anyMatch(c -> c.isComposite());
+            final boolean hasCompositeColumns = mapRel.getReferencedColumns().stream()
+                .anyMatch(JpaColumn::isComposite);
             assertThat(hasCompositeColumns).isTrue();
         }
     }
@@ -337,7 +332,7 @@ class MissingTagsTest {
      */
     @Test
     void testQueryTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -354,11 +349,11 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
         
         // Should handle named queries
         assertThat(jpaBase.getEntities()).hasSize(1);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         assertThat(entity.getName()).isEqualTo("QueryTestEntity");
         
         // Check if query is processed (implementation may vary)
@@ -372,7 +367,7 @@ class MissingTagsTest {
      */
     @Test
     void testSqlQueryTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -390,11 +385,11 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
         
         // Should handle native queries
         assertThat(jpaBase.getEntities()).hasSize(1);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         assertThat(entity.getName()).isEqualTo("SqlQueryTestEntity");
     }
 
@@ -404,7 +399,7 @@ class MissingTagsTest {
      */
     @Test
     void testReturnScalarTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -422,18 +417,18 @@ class MissingTagsTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
         
         // Should handle scalar return mapping
         assertThat(jpaBase.getEntities()).hasSize(1);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         assertThat(entity.getName()).isEqualTo("ReturnScalarTestEntity");
     }
 
     // Helper method to parse HBM content
-    private JpaBase parseHbmContent(String hbmContent) throws Exception {
-        File tempFile = tempDir.resolve("test.hbm.xml").toFile();
-        try (FileWriter writer = new FileWriter(tempFile)) {
+    private JpaBase parseHbmContent(final String hbmContent) throws Exception {
+        final File tempFile = tempDir.resolve("test.hbm.xml").toFile();
+        try (final FileWriter writer = new FileWriter(tempFile)) {
             writer.write(hbmContent);
         }
         return parser.parse(tempFile.getAbsolutePath());

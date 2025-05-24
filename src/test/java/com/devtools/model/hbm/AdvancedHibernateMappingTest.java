@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.devtools.model.jpa.JpaBase;
-import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.HbmParser;
 
 /**
@@ -27,12 +26,10 @@ public class AdvancedHibernateMappingTest {
     Path tempDir;
     
     private HbmParser parser;
-    private AnnotationBuilder annotationBuilder;
 
     @BeforeEach
     void setUp() {
         parser = new HbmParser();
-        annotationBuilder = new AnnotationBuilder(tempDir.toString());
     }
 
     /**
@@ -40,9 +37,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testSetCollectionWithOneToMany() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="CustomerEntity" table="customers">
@@ -57,11 +54,11 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("orders");
         assertThat(relationship.getType()).isEqualTo("OrderEntity");
@@ -80,9 +77,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testListCollectionWithIndex() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="PlaylistEntity" table="playlists">
@@ -98,11 +95,11 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("songs");
         assertThat(relationship.getCollectionType()).isEqualTo("list");
@@ -114,9 +111,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testBagCollection() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="CategoryEntity" table="categories">
@@ -131,11 +128,11 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("items");
         assertThat(relationship.getCollectionType()).isEqualTo("bag");
@@ -147,9 +144,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testMapCollection() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="ConfigEntity" table="configs">
@@ -165,11 +162,11 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("properties");
         assertThat(relationship.getCollectionType()).isEqualTo("map");
@@ -180,9 +177,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testManyToManyRelationship() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="StudentEntity" table="students">
@@ -197,11 +194,11 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("courses");
         assertThat(relationship.getType()).isEqualTo("CourseEntity");
@@ -214,27 +211,27 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testOneToOneWithForeignKey() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="UserEntity" table="users">
                     <id name="id" type="long">
                         <generator class="identity"/>
                     </id>
-                    <one-to-one name="profile" class="ProfileEntity" 
-                                foreign-key="FK_USER_PROFILE" 
+                    <one-to-one name="profile" class="ProfileEntity"
+                                foreign-key="FK_USER_PROFILE"
                                 cascade="save-update"/>
                 </class>
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getRelationships()).hasSize(1);
-        JpaRelationship relationship = entity.getRelationships().get(0);
+        final JpaRelationship relationship = entity.getRelationships().get(0);
         
         assertThat(relationship.getName()).isEqualTo("profile");
         assertThat(relationship.getType()).isEqualTo("ProfileEntity");
@@ -247,9 +244,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testComponentTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="PersonEntity" table="persons">
@@ -265,12 +262,12 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Component creates an embedded field, not individual columns
         assertThat(entity.getEmbeddedFields()).hasSize(1);
-        JpaEntity embeddedEntity = entity.getEmbeddedFields().get(0);
+        final JpaEntity embeddedEntity = entity.getEmbeddedFields().get(0);
         assertThat(embeddedEntity.getName()).isEqualTo("AddressComponent"); // Uses class name, not field name
     }
 
@@ -279,9 +276,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testNaturalIdTag() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="ProductEntity" table="products">
@@ -296,17 +293,17 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(2);
         
-        JpaColumn skuColumn = entity.getColumns().stream()
+        final JpaColumn skuColumn = entity.getColumns().stream()
             .filter(c -> "sku".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(skuColumn.getNaturalId()).isNotEqualTo(JpaColumn.NaturalId.NONE);
         
-        JpaColumn nameColumn = entity.getColumns().stream()
+        final JpaColumn nameColumn = entity.getColumns().stream()
             .filter(c -> "name".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(nameColumn.getNaturalId()).isEqualTo(JpaColumn.NaturalId.NONE);
@@ -317,9 +314,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testPropertyWithComplexColumn() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="DocumentEntity" table="documents">
@@ -327,9 +324,9 @@ public class AdvancedHibernateMappingTest {
                         <generator class="identity"/>
                     </id>
                     <property name="content" type="text" lazy="true" access="field">
-                        <column name="document_content" 
-                                length="65535" 
-                                not-null="false" 
+                        <column name="document_content"
+                                length="65535"
+                                not-null="false"
                                 unique="false"
                                 index="idx_content"/>
                     </property>
@@ -337,11 +334,11 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getColumns()).hasSize(1);
-        JpaColumn column = entity.getColumns().get(0);
+        final JpaColumn column = entity.getColumns().get(0);
         
         assertThat(column.getName()).isEqualTo("content");
         assertThat(column.getType()).isEqualTo("text");
@@ -358,9 +355,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testTimestampProperty() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="AuditEntity" table="audit_log">
@@ -372,8 +369,8 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Timestamp tag is not implemented, so no columns should be created
         assertThat(entity.getColumns()).hasSize(0);
@@ -384,9 +381,9 @@ public class AdvancedHibernateMappingTest {
      */
     @Test
     void testJoinTable() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN" 
+            <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="EmployeeEntity" table="employees">
@@ -402,27 +399,27 @@ public class AdvancedHibernateMappingTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         // Join table creates a secondary table mapping
         assertThat(entity.getColumns()).hasSize(2);
         
-        JpaColumn bioColumn = entity.getColumns().stream()
+        final JpaColumn bioColumn = entity.getColumns().stream()
             .filter(c -> "biography".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(bioColumn.getType()).isEqualTo("text");
         
-        JpaColumn notesColumn = entity.getColumns().stream()
+        final JpaColumn notesColumn = entity.getColumns().stream()
             .filter(c -> "notes".equals(c.getName()))
             .findFirst().orElseThrow();
         assertThat(notesColumn.getType()).isEqualTo("text");
     }
 
     // Helper method to parse HBM content
-    private JpaBase parseHbmContent(String hbmContent) throws Exception {
-        File tempFile = tempDir.resolve("test.hbm.xml").toFile();
-        try (FileWriter writer = new FileWriter(tempFile)) {
+    private JpaBase parseHbmContent(final String hbmContent) throws Exception {
+        final File tempFile = tempDir.resolve("test.hbm.xml").toFile();
+        try (final FileWriter writer = new FileWriter(tempFile)) {
             writer.write(hbmContent);
         }
         return parser.parse(tempFile.getAbsolutePath());

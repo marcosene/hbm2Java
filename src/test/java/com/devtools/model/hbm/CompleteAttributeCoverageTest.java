@@ -11,10 +11,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import com.devtools.model.jpa.JpaBase;
-import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.HbmParser;
 
 /**
@@ -27,12 +26,10 @@ class CompleteAttributeCoverageTest {
     Path tempDir;
 
     private HbmParser parser;
-    private AnnotationBuilder annotationBuilder;
 
     @BeforeEach
     void setUp() {
         parser = new HbmParser();
-        annotationBuilder = new AnnotationBuilder("test-output");
     }
 
     /**
@@ -42,12 +39,12 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testClassTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
-                <class name="CompleteClassEntity" 
+                <class name="CompleteClassEntity"
                        table="complete_class_table"
                        dynamic-insert="true"
                        dynamic-update="true"
@@ -63,8 +60,8 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
         assertThat(entity.getName()).isEqualTo("CompleteClassEntity");
         assertThat(entity.getTable()).isEqualTo("complete_class_table");
@@ -81,7 +78,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testPropertyTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -90,7 +87,7 @@ class CompleteAttributeCoverageTest {
                     <id name="id" type="long">
                         <generator class="identity"/>
                     </id>
-                    <property name="description" 
+                    <property name="description"
                               type="string"
                               column="desc_col"
                               update="true"
@@ -105,10 +102,10 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
-        JpaColumn description = entity.getColumns().stream()
+        final JpaColumn description = entity.getColumns().stream()
             .filter(c -> "description".equals(c.getName()))
             .findFirst().orElseThrow();
             
@@ -116,7 +113,7 @@ class CompleteAttributeCoverageTest {
         assertThat(description.getColumnName()).isEqualTo("desc_col");
         assertThat(description.getLength()).isEqualTo(255);
         
-        JpaColumn readOnlyField = entity.getColumns().stream()
+        final JpaColumn readOnlyField = entity.getColumns().stream()
             .filter(c -> "readOnlyField".equals(c.getName()))
             .findFirst().orElseThrow();
             
@@ -134,7 +131,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testManyToOneWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -167,12 +164,12 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity childClass = jpaBase.getEntities().stream()
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity childClass = jpaBase.getEntities().stream()
             .filter(c -> "CompleteManyToOneEntity".equals(c.getName()))
             .findFirst().orElseThrow();
         
-        JpaRelationship parentRelationship = childClass.getRelationships().stream()
+        final JpaRelationship parentRelationship = childClass.getRelationships().stream()
             .filter(r -> "parent".equals(r.getName()))
             .findFirst().orElseThrow();
             
@@ -195,7 +192,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testSetCollectionWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -225,12 +222,12 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity parentClass = jpaBase.getEntities().stream()
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity parentClass = jpaBase.getEntities().stream()
             .filter(c -> "CompleteSetEntity".equals(c.getName()))
             .findFirst().orElseThrow();
         
-        JpaRelationship childrenRelationship = parentClass.getRelationships().stream()
+        final JpaRelationship childrenRelationship = parentClass.getRelationships().stream()
             .filter(r -> "children".equals(r.getName()))
             .findFirst().orElseThrow();
             
@@ -250,7 +247,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testKeyTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -267,10 +264,10 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
-        JpaRelationship itemsRelationship = entity.getRelationships().stream()
+        final JpaRelationship itemsRelationship = entity.getRelationships().stream()
             .filter(r -> "items".equals(r.getName()))
             .findFirst().orElseThrow();
             
@@ -287,7 +284,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testVersionTagWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -304,10 +301,10 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
-        JpaColumn versionColumn = entity.getColumns().stream()
+        final JpaColumn versionColumn = entity.getColumns().stream()
             .filter(c -> "version".equals(c.getName()))
             .findFirst().orElseThrow();
             
@@ -323,7 +320,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testNaturalIdWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -340,10 +337,10 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
-        JpaColumn naturalKeyColumn = entity.getColumns().stream()
+        final JpaColumn naturalKeyColumn = entity.getColumns().stream()
             .filter(c -> "naturalKey".equals(c.getName()))
             .findFirst().orElseThrow();
             
@@ -359,7 +356,7 @@ class CompleteAttributeCoverageTest {
      */
     @Test
     void testComponentWithAllAttributes() throws Exception {
-        String hbmContent = """
+        final String hbmContent = """
             <?xml version="1.0" encoding="UTF-8"?>
             <!DOCTYPE hibernate-mapping PUBLIC "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
@@ -376,10 +373,10 @@ class CompleteAttributeCoverageTest {
             </hibernate-mapping>
             """;
 
-        JpaBase jpaBase = parseHbmContent(hbmContent);
-        JpaEntity entity = jpaBase.getEntities().get(0);
+        final JpaBase jpaBase = parseHbmContent(hbmContent);
+        final JpaEntity entity = jpaBase.getEntities().get(0);
         
-        JpaColumn addressColumn = entity.getColumns().stream()
+        final JpaColumn addressColumn = entity.getColumns().stream()
             .filter(c -> "address".equals(c.getName()))
             .findFirst().orElse(null);
             
@@ -394,9 +391,9 @@ class CompleteAttributeCoverageTest {
     }
 
     // Helper method to parse HBM content
-    private JpaBase parseHbmContent(String hbmContent) throws Exception {
-        File tempFile = tempDir.resolve("test.hbm.xml").toFile();
-        try (FileWriter writer = new FileWriter(tempFile)) {
+    private JpaBase parseHbmContent(final String hbmContent) throws Exception {
+        final File tempFile = tempDir.resolve("test.hbm.xml").toFile();
+        try (final FileWriter writer = new FileWriter(tempFile)) {
             writer.write(hbmContent);
         }
         return parser.parse(tempFile.getAbsolutePath());

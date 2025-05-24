@@ -3,8 +3,8 @@ package com.example.model;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 
 public class Company {
     private Long id;
