@@ -7,9 +7,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -50,8 +52,10 @@ public class AnnotationApplier {
     private static final JavaParser JAVA_PARSER = new JavaParser();
 
     public void replace(final JpaEntity entity, final String outputFolder) throws IOException {
+        // Initialize cache to track processed classes across the entire entity hierarchy
+        final Set<String> processedClasses = new HashSet<>();
 
-        writeAnnotations(entity, outputFolder, entity.getName(), false);
+        writeAnnotations(entity, outputFolder, entity.getName(), false, processedClasses);
 
         // Check if some element parsed from the hbm.xml has no corresponding field in the class
         validateFieldsNotFound(entity);
@@ -63,7 +67,17 @@ public class AnnotationApplier {
     }
 
     private void writeAnnotations(final JpaEntity entity, final String outputFolder, final String className,
-            final boolean isParentClass) throws IOException {
+            final boolean isParentClass, final Set<String> processedClasses) throws IOException {
+        
+        // Check if this class has already been processed to avoid redundant work
+        if (processedClasses.contains(className)) {
+            LOG.debug("Skipping already processed class: " + className);
+            return;
+        }
+        
+        // Mark this class as processed
+        processedClasses.add(className);
+        
         final String fullClassFilename = FileUtils.findClassPath(new File(outputFolder), className);
 
         final Path path;
@@ -137,7 +151,7 @@ public class AnnotationApplier {
         if (!childClass.getExtendedTypes().isEmpty()) {
             final ClassOrInterfaceType resolvedType = childClass.getExtendedTypes().get(0);
             final String parentClass = resolvedType.getName().asString();
-            writeAnnotations(entity, outputFolder, parentClass, true);
+            writeAnnotations(entity, outputFolder, parentClass, true, processedClasses);
         }
     }
 
