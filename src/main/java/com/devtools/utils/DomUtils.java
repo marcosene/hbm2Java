@@ -7,9 +7,25 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
-public interface DomUtils {
+/**
+ * Utility class for DOM (Document Object Model) operations.
+ * Provides methods to navigate and extract elements from XML/HTML documents.
+ */
+public final class DomUtils {
 
-    static List<Element> getChildrenByTag(final Element parentElement, final String tagName) {
+    private DomUtils() {
+        // Utility class - prevent instantiation
+    }
+
+    /**
+     * Retrieves all direct child elements of a parent element that match the specified tag name.
+     * Filters out text nodes, comments, and other non-element nodes.
+     * 
+     * @param parentElement the parent element to search within
+     * @param tagName the tag name to match (null matches all element children)
+     * @return a list of matching child elements (empty list if none found)
+     */
+    public static List<Element> getChildrenByTag(final Element parentElement, final String tagName) {
         final List<Element> matchingChildren = new ArrayList<>();
 
         // Get all direct children of the parent element
@@ -34,7 +50,14 @@ public interface DomUtils {
         return matchingChildren;
     }
 
-    static Element getFirstChildByTag(final Element parentElement, final String tagName) {
+    /**
+     * Retrieves the first direct child element that matches the specified tag name.
+     * 
+     * @param parentElement the parent element to search within
+     * @param tagName the tag name to match (null matches the first element child)
+     * @return the first matching child element, or null if none found
+     */
+    public static Element getFirstChildByTag(final Element parentElement, final String tagName) {
         final List<Element> elements = getChildrenByTag(parentElement, tagName);
         if (elements.isEmpty()) {
             return null;

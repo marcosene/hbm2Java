@@ -8,7 +8,7 @@ import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import com.devtools.model.jpa.builder.JpaEntityBuilder;
-import com.devtools.utils.ClassUtils;
+import com.devtools.utils.ClassNameUtils;
 
 @Getter
 @Setter
@@ -45,7 +45,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getName() {
-        return ClassUtils.getSimpleClassName(name);
+        return ClassNameUtils.getSimpleClassName(name);
     }
 
     public void setName(final String className) {
@@ -65,13 +65,17 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getParentClass() {
-        return ClassUtils.getSimpleClassName(parentClass);
+        return ClassNameUtils.getSimpleClassName(parentClass);
     }
 
     public void setParentClass(final String parentClass) {
         if (StringUtils.isNotBlank(parentClass)) {
             this.parentClass = parentClass;
         }
+    }
+
+    public JpaDiscriminator getDiscriminator() {
+        return discriminator;
     }
 
     public JpaDiscriminator getDiscriminator(final boolean create) {
@@ -116,7 +120,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getPackageName() {
-        return ClassUtils.getPackageName(name);
+        return ClassNameUtils.getPackageName(name);
     }
 
     public static JpaEntityBuilder builder() {

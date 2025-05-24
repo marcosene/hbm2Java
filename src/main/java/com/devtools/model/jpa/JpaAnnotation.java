@@ -12,8 +12,6 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.devtools.utils.Utils;
-
 @Getter
 @Setter
 public abstract class JpaAnnotation {
@@ -53,7 +51,7 @@ public abstract class JpaAnnotation {
     }
 
     public void addAnnotation(final String annotation) {
-        imports.addAll(Utils.extractFullyQualifiedClassNames(annotation));
-        annotations.add(Utils.removePackagesFromText(annotation));
+        imports.addAll(com.devtools.utils.StringUtils.extractFullyQualifiedClassNames(annotation));
+        annotations.add(com.devtools.utils.StringUtils.removePackagesFromText(annotation));
     }
 }

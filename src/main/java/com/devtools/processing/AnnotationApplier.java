@@ -20,7 +20,8 @@ import com.devtools.model.jpa.JpaAnnotation;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.utils.HibernateUtils;
-import com.devtools.utils.Utils;
+import com.devtools.utils.FileUtils;
+import com.devtools.utils.ClassNameUtils;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration;
@@ -63,7 +64,7 @@ public class AnnotationApplier {
 
     private void writeAnnotations(final JpaEntity entity, final String outputFolder, final String className,
             final boolean isParentClass) throws IOException {
-        final String fullClassFilename = Utils.findClassPath(new File(outputFolder), className);
+        final String fullClassFilename = FileUtils.findClassPath(new File(outputFolder), className);
 
         final Path path;
         try {
@@ -154,9 +155,9 @@ public class AnnotationApplier {
     private void processJpaAnnotation(final FieldDeclaration field, final JpaAnnotation jpaAnnotation, final CompilationUnit cu,
             final AtomicBoolean hasChanged) {
         if (jpaAnnotation.getType() != null) {
-            final String annotationType = Utils.getSimpleClass(
+            final String annotationType = ClassNameUtils.getSimpleClassName(
                     HibernateUtils.mapHibernateTypeToJava(jpaAnnotation.getType(), true));
-            final String fieldType = Utils.getSimpleClass(extractFullType(field.getVariables().get(0).getType()));
+            final String fieldType = ClassNameUtils.getSimpleClassName(extractFullType(field.getVariables().get(0).getType()));
 
             // Add @Type when the annotation type is different of the field return type
             if (!HibernateUtils.isPrimitiveType(fieldType) && !"Map".equals(fieldType) &&

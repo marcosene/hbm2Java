@@ -6,6 +6,10 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * Utility class for parsing Hibernate generator parameters.
+ * Handles extraction of initial values and allocation sizes from generator parameter strings.
+ */
 public final class GeneratorUtils {
 
     private GeneratorUtils() {}

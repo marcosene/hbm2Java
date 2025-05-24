@@ -18,7 +18,8 @@ import com.devtools.model.jpa.JpaColumn;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
 import com.devtools.utils.HibernateUtils;
-import com.devtools.utils.Utils;
+import com.devtools.utils.FileUtils;
+import com.devtools.utils.ClassNameUtils;
 
 public class EntityGenerator {
 
@@ -52,7 +53,7 @@ public class EntityGenerator {
         // Close the class definition
         entityCode.append("}\n");
 
-        Utils.writeFile(outputFolder + File.separator + entityDef.getName() + ".new.java", entityCode);
+        FileUtils.writeFile(outputFolder + File.separator + entityDef.getName() + ".new.java", entityCode.toString());
     }
 
     private void generateHeaders(final JpaEntity entityDef, final StringBuilder entityCode) {
@@ -74,7 +75,7 @@ public class EntityGenerator {
 
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
             // Add to imports if it's not a native type
-            if (HibernateUtils.isCustomType(Utils.getSimpleClass(relationship.getType()))) {
+            if (HibernateUtils.isCustomType(ClassNameUtils.getSimpleClassName(relationship.getType()))) {
                 importClasses.add(relationship.getType());
             }
 
@@ -140,7 +141,7 @@ public class EntityGenerator {
             for (final String annotation : col.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
-            entityCode.append("    private ").append(Utils.getSimpleClass(HibernateUtils.mapHibernateTypeToJava(col.getReturnType())))
+            entityCode.append("    private ").append(ClassNameUtils.getSimpleClassName(HibernateUtils.mapHibernateTypeToJava(col.getReturnType())))
                     .append(" ").append(col.getName()).append(";\n\n");
         }
     }
@@ -204,7 +205,7 @@ public class EntityGenerator {
                 entityCode.append(relationship.getReferencedColumns().get(0).getReturnType()).append(", ");
                 entityCode.append(relationship.getReturnType());
             } else {
-                entityCode.append(Utils.getSimpleClass(relationship.getReturnType()));
+                entityCode.append(ClassNameUtils.getSimpleClassName(relationship.getReturnType()));
             }
 
             if (relationship.getRelationshipType().equals(JpaRelationship.Type.OneToMany) ||

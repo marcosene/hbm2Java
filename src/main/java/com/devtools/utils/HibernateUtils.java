@@ -9,27 +9,51 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
-import org.checkerframework.checker.units.qual.N;
+
 import org.joda.time.LocalDate;
 import org.joda.time.LocalDateTime;
 import org.joda.time.LocalTime;
 
-public interface HibernateUtils {
+/**
+ * Utility class for Hibernate to JPA mapping operations.
+ * Provides methods to convert Hibernate types to Java types, handle discriminators, and cascade types.
+ */
+public final class HibernateUtils {
 
-    Set<String> PRIMITIVE_TYPES = new HashSet<>(Arrays.asList(
+    private HibernateUtils() {
+        // Utility class - prevent instantiation
+    }
+
+    /** Set of Java primitive type names. */
+    public static final Set<String> PRIMITIVE_TYPES = new HashSet<>(Arrays.asList(
             "int", "long", "float", "double", "boolean", "char", "byte", "short"
     ));
 
-    Set<String> NATIVE_TYPES = new HashSet<>(Arrays.asList(
+    /** Set of Java native/wrapper type names. */
+    public static final Set<String> NATIVE_TYPES = new HashSet<>(Arrays.asList(
             "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
             "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
     ));
 
-    static String mapHibernateTypeToJava(final String hibernateType) {
+    /**
+     * Maps a Hibernate type to its corresponding Java type.
+     * Uses simple class names by default.
+     * 
+     * @param hibernateType the Hibernate type name
+     * @return the corresponding Java type name
+     */
+    public static String mapHibernateTypeToJava(final String hibernateType) {
         return mapHibernateTypeToJava(hibernateType, false);
     }
 
-    static String mapHibernateTypeToJava(final String hibernateType, final boolean fullName) {
+    /**
+     * Maps a Hibernate type to its corresponding Java type.
+     * 
+     * @param hibernateType the Hibernate type name
+     * @param fullName if true, returns fully qualified class names; if false, returns simple class names
+     * @return the corresponding Java type name
+     */
+    public static String mapHibernateTypeToJava(final String hibernateType, final boolean fullName) {
         if (hibernateType == null) {
             return null;
         }
@@ -55,23 +79,40 @@ public interface HibernateUtils {
         };
 
         if (clazz != null) {
-            return fullName ? clazz.getCanonicalName() : clazz.getName();
+            return fullName ? clazz.getCanonicalName() : clazz.getSimpleName();
         } else {
-            return fullName ? hibernateType : Utils.getSimpleClass(hibernateType);
+            return fullName ? hibernateType : ClassNameUtils.getSimpleClassName(hibernateType);
         }
     }
 
-    // Helper method to check for native types
-    static boolean isPrimitiveType(final String type) {
+    /**
+     * Checks if the given type is a Java primitive type.
+     * 
+     * @param type the type name to check
+     * @return true if the type is a primitive type, false otherwise
+     */
+    public static boolean isPrimitiveType(final String type) {
         return PRIMITIVE_TYPES.contains(type);
     }
 
-    // Helper method to check for custom types
-    static boolean isCustomType(final String type) {
+    /**
+     * Checks if the given type is a custom (non-native, non-primitive) type.
+     * 
+     * @param type the type name to check
+     * @return true if the type is a custom type, false otherwise
+     */
+    public static boolean isCustomType(final String type) {
         return !NATIVE_TYPES.contains(type) && !PRIMITIVE_TYPES.contains(type);
     }
 
-    static String getDiscriminatorType(final String type) {
+    /**
+     * Converts a discriminator type string to its JPA DiscriminatorType enum equivalent.
+     * 
+     * @param type the discriminator type ("string", "char", or "int")
+     * @return the corresponding DiscriminatorType enum reference
+     * @throws IllegalStateException if the type is not supported
+     */
+    public static String getDiscriminatorType(final String type) {
         return switch (type) {
             case "string" -> "DiscriminatorType.STRING";
             case "char" -> "DiscriminatorType.CHAR";
@@ -80,7 +121,13 @@ public interface HibernateUtils {
         };
     }
 
-    static String convertCascadeTypes(final String cascade) {
+    /**
+     * Converts Hibernate cascade types to JPA CascadeType equivalents.
+     * 
+     * @param cascade the Hibernate cascade string (comma-separated values)
+     * @return the corresponding JPA CascadeType references as a string
+     */
+    public static String convertCascadeTypes(final String cascade) {
         final StringBuilder cascadeTypes = new StringBuilder();
 
         if (StringUtils.isNotBlank(cascade)) {
