@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import org.apache.commons.lang3.StringUtils;
+import com.devtools.model.jpa.builder.JpaColumnBuilder;
 
 @Getter
 @Setter
@@ -16,7 +17,7 @@ public class JpaColumn extends JpaAnnotation {
     }
 
     private String columnName;
-    private Integer length = 255;
+    private Integer length = JpaDefaults.DEFAULT_COLUMN_LENGTH;
     private boolean nullable = true;
     private boolean updatable = true;
     private String foreignKey;
@@ -32,8 +33,8 @@ public class JpaColumn extends JpaAnnotation {
     private boolean inverseJoin = false;
     private NaturalId naturalId = NaturalId.NONE;
     private String columnDefinition;
-    private Integer precision = 0;
-    private Integer scale = 0;
+    private Integer precision = JpaDefaults.DEFAULT_COLUMN_PRECISION;
+    private Integer scale = JpaDefaults.DEFAULT_COLUMN_SCALE;
 
     public void setColumnName(final String columnName) {
         if (StringUtils.isNotBlank(columnName)) {
@@ -75,5 +76,9 @@ public class JpaColumn extends JpaAnnotation {
         if (StringUtils.isNotBlank(columnDefinition)) {
             this.columnDefinition = columnDefinition;
         }
+    }
+
+    public static JpaColumnBuilder builder() {
+        return new JpaColumnBuilder();
     }
 }

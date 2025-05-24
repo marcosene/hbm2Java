@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaDefaults;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
@@ -149,7 +150,7 @@ public class AnnotationBuilder {
                     discriminatorAnnotation.append(", type = ").append(
                             HibernateUtils.getDiscriminatorType(jpaEntity.getDiscriminator().getType()));
                 }
-                if (jpaEntity.getDiscriminator().getLength() != 31) {
+                if (jpaEntity.getDiscriminator().getLength() != JpaDefaults.DEFAULT_DISCRIMINATOR_LENGTH) {
                     discriminatorAnnotation.append(", length = ").append(jpaEntity.getDiscriminator().getLength());
                 }
                 discriminatorAnnotation.append(")");
@@ -396,7 +397,7 @@ public class AnnotationBuilder {
         }
         columnAnnotation.append("name = \"").append(col.getColumnName()).append("\"");
 
-        if (col.getLength() != null && col.getLength() != 255) {
+        if (col.getLength() != null && col.getLength() != JpaDefaults.DEFAULT_COLUMN_LENGTH) {
             columnAnnotation.append(", length = ").append(col.getLength());
         }
         if (!col.isNullable()) {

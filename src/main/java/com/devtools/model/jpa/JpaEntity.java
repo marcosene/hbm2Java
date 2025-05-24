@@ -7,6 +7,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import com.devtools.model.jpa.builder.JpaEntityBuilder;
+import com.devtools.utils.ClassUtils;
 
 @Getter
 @Setter
@@ -43,10 +45,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getName() {
-        if (name != null) {
-            return name.contains(".") ? name.substring(name.lastIndexOf(".") + 1) : name;
-        }
-        return null;
+        return ClassUtils.getSimpleClassName(name);
     }
 
     public void setName(final String className) {
@@ -66,10 +65,7 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getParentClass() {
-        if (parentClass != null) {
-            return parentClass.contains(".") ? parentClass.substring(parentClass.lastIndexOf(".") + 1) : parentClass;
-        }
-        return null;
+        return ClassUtils.getSimpleClassName(parentClass);
     }
 
     public void setParentClass(final String parentClass) {
@@ -120,11 +116,10 @@ public class JpaEntity extends JpaAnnotation {
     }
 
     public String getPackageName() {
-        // Extract the package name from the full class name
-        if (name != null && name.contains(".")) {
-            return name.substring(0, name.lastIndexOf("."));
-        }
-        // Return a default package if not defined (or throw an exception if required)
-        return "";
+        return ClassUtils.getPackageName(name);
+    }
+
+    public static JpaEntityBuilder builder() {
+        return new JpaEntityBuilder();
     }
 }

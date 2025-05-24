@@ -12,7 +12,7 @@ public class JpaDiscriminator {
     private String type;
     private String column;
     private String value;
-    private int length = 31;
+    private int length = JpaDefaults.DEFAULT_DISCRIMINATOR_LENGTH;
 
     public void setType(final String type) {
         if (StringUtils.isNotBlank(type)) {
