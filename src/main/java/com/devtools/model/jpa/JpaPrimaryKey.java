@@ -5,10 +5,6 @@ import lombok.Setter;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.apache.commons.lang3.StringUtils;
 
 @Setter
 @Getter
@@ -34,43 +30,16 @@ public class JpaPrimaryKey extends JpaAnnotation {
     }
 
     public String getInitialValue() {
-        return parseGeneratorParameters(PARAMS_INITIAL_VALUE);
+        return com.devtools.utils.GeneratorUtils.parseGeneratorParameters(PARAMS_INITIAL_VALUE, generatorParams, PARAMETERS);
     }
 
     public String getAllocationSize() {
-        return parseGeneratorParameters(PARAMS_ALLOCATION_SIZE);
+        return com.devtools.utils.GeneratorUtils.parseGeneratorParameters(PARAMS_ALLOCATION_SIZE, generatorParams, PARAMETERS);
     }
 
     public String getProperty() {
         return generatorParams.getOrDefault(PARAMS_PROPERTY, "");
     }
 
-    private String parseGeneratorParameters(final String paramValue) {
-        if (paramValue == null || !generatorParams.containsKey(PARAMETERS)) {
-            return "";
-        }
-        final Pattern PARAMETERS_PATTERN = Pattern.compile("^START WITH\\s+(\\d+)(?:\\s+CACHE\\s+(\\d+))?$",
-                Pattern.CASE_INSENSITIVE);
-        final Matcher matcher = PARAMETERS_PATTERN.matcher(generatorParams.get(PARAMETERS));
 
-        if (matcher.matches()) {
-            try {
-                // Convert the captured strings to integers
-                if (PARAMS_INITIAL_VALUE.equals(paramValue) && StringUtils.isNotBlank(matcher.group(1))) {
-                    return matcher.group(1);
-                } else {
-                    if (PARAMS_ALLOCATION_SIZE.equals(paramValue) && StringUtils.isNotBlank(matcher.group(2))) {
-                        return matcher.group(2);
-                    }
-                    return "";
-                }
-            } catch (final NumberFormatException e) {
-                throw new IllegalArgumentException(
-                        "Could not parse generator parameters for: " + paramValue, e);
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    "Generator Parameter string does not match expected format 'START WITH <number> CACHE <number>': " + paramValue);
-        }
-    }
 }

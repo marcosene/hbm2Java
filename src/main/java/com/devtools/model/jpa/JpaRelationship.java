@@ -60,4 +60,8 @@ public class JpaRelationship extends JpaAnnotation {
     public void addReferencedColumn(final JpaColumn referencedColumn) {
         referencedColumns.add(referencedColumn);
     }
+
+    public static JpaRelationshipBuilder builder() {
+        return new JpaRelationshipBuilder();
+    }
 }
