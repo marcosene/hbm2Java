@@ -18,6 +18,8 @@ import com.devtools.utils.Utils;
 
 public class AnnotationBuilder {
 
+    private static final String PREFIX_GENERATOR = "generator";
+
     private final String outputFolder;
 
     public AnnotationBuilder(final String outputFolder) {
@@ -252,7 +254,8 @@ public class AnnotationBuilder {
                 break; // it will be defined in the OneToOne
             case "GENERATOR":
                 if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
-                    jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(generator = \"" +
+                    jpaPrimaryKey.addAnnotation(
+                            "@javax.persistence.GeneratedValue(generator = \"" + PREFIX_GENERATOR +
                                     entityDef.getPrimaryKey().getGeneratorName() + "\")");
                 }
                 break;
@@ -276,11 +279,11 @@ public class AnnotationBuilder {
             final String initialValue = entityDef.getPrimaryKey().getInitialValue();
             final String allocationSize = entityDef.getPrimaryKey().getAllocationSize();
 
-            sequenceAnnotation.append(", generator = \"gen").append(entityDef.getName()).append("\"");
+            sequenceAnnotation.append(", generator = \"").append(PREFIX_GENERATOR).append(entityDef.getName()).append("\"");
             // Add the @SequenceGenerator
             sequenceAnnotation.append(")");
 
-            generatorAnnotation.append("@javax.persistence.SequenceGenerator(name = \"gen").append(entityDef.getName())
+            generatorAnnotation.append("@javax.persistence.SequenceGenerator(name = \"" + PREFIX_GENERATOR).append(entityDef.getName())
                     .append("\", sequenceName = \"").append(generatorName).append("\"")
                     .append(StringUtils.isNotBlank(allocationSize) ? ", allocationSize = " + allocationSize : "")
                     .append(StringUtils.isNotBlank(initialValue) ? ", initialValue = " + initialValue : "")
@@ -299,12 +302,12 @@ public class AnnotationBuilder {
 
         final String sequenceAnnotation =
                 "@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE"
-                        + ", generator = \"gen" + entityDef.getName() + "\""
+                        + ", generator = \"" + PREFIX_GENERATOR + entityDef.getName() + "\""
                         + ")";
         jpaPrimaryKey.addAnnotation(sequenceAnnotation);
 
         final StringBuilder generatorAnnotation = new StringBuilder();
-        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"gen")
+        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"" + PREFIX_GENERATOR)
                 .append(entityDef.getName())
                 .append("\",\n    strategy = \"org.hibernate.id.enhanced.SequenceStyleGenerator\"")
                 .append(",\n    parameters = {\n");
@@ -333,11 +336,11 @@ public class AnnotationBuilder {
         final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
 
         final String sequenceAnnotation =
-                "@javax.persistence.GeneratedValue(generator = \"gen" + entityDef.getName() + "\")";
+                "@javax.persistence.GeneratedValue(generator = \"" + PREFIX_GENERATOR + entityDef.getName() + "\")";
         jpaPrimaryKey.addAnnotation(sequenceAnnotation);
 
         final StringBuilder generatorAnnotation = new StringBuilder();
-        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"gen")
+        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"" + PREFIX_GENERATOR)
                 .append(entityDef.getName())
                 .append("\",\n    strategy = \"foreign\"")
                 .append(",\n    parameters = ");
@@ -365,21 +368,6 @@ public class AnnotationBuilder {
             if (col.getNaturalId() != JpaColumn.NaturalId.NONE) {
                 col.addAnnotation("@org.hibernate.annotations.NaturalId" +
                         (col.getNaturalId() == JpaColumn.NaturalId.MUTABLE ? "(mutable = true)" : ""));
-            }
-
-            if (col.getType() != null && col.getType(false).endsWith("Type")) {
-                final StringBuilder typeAnnotation = new StringBuilder();
-                typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(col.getType(false)).append("\"");
-                if (!col.getTypeParams().isEmpty()) {
-                    typeAnnotation.append(",\n        parameters = {\n");
-                    for (final Map.Entry<String, String> entry : col.getTypeParams().entrySet()) {
-                        typeAnnotation.append("            @org.hibernate.annotations.Parameter(name = \"").append(entry.getKey());
-                        typeAnnotation.append("\", value = \"").append(entry.getValue()).append("\"),\n");
-                    }
-                    typeAnnotation.append("        }\n    ");
-                }
-                typeAnnotation.append(")");
-                col.addAnnotation(typeAnnotation.toString());
             }
 
             if (col.isLazy()) {
@@ -468,8 +456,8 @@ public class AnnotationBuilder {
             if (Tags.TAG_MAP.equals(relationship.getCollectionType()) && relationship.getReferencedColumns() != null) {
                 if (relationship.getReferencedColumns().size() > 1) {
                     relationship.addAnnotation("@javax.persistence.MapKeyClass(" +
-                            relationship.getReferencedColumns().get(0).getType() + ".class)");
-                    relationship.addAnnotation("@javax.persistence.MapKeyEmbedded");
+                            relationship.getReferencedColumns().stream().filter(JpaColumn::isComposite)
+                                    .findFirst().get().getType() + ".class)");
                 } else {
                     relationship.addAnnotation("@javax.persistence.MapKeyColumn(name = \"" +
                             relationship.getReferencedColumns().get(0).getName() + "\")");
@@ -506,7 +494,7 @@ public class AnnotationBuilder {
             final StringBuilder relationshipAnnotation = new StringBuilder();
 
             // Generate the appropriate relationship annotation
-            switch (relationship.getType()) {
+            switch (relationship.getRelationshipType()) {
                 case ManyToOne:
                     if (StringUtils.isNotBlank(relationship.getAccess())) {
                         relationship.addAnnotation("@javax.persistence.Access(javax.persistence.AccessType." +
@@ -516,8 +504,10 @@ public class AnnotationBuilder {
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
                     }
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-2); // remove last comma
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-1); // remove last space
+                    if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 1); // remove last space
+                    }
                     relationshipAnnotation.append(")");
                     relationship.addAnnotation(relationshipAnnotation.toString());
 
@@ -539,12 +529,14 @@ public class AnnotationBuilder {
                         String mappedBy = relationship.getMappedBy();
                         if (StringUtils.isBlank(mappedBy)) {
                             mappedBy = Utils.searchVariableNameByType(outputFolder,
-                                    Utils.getSimpleClass(relationship.getTargetEntity()), entityDef.getName());
+                                    Utils.getSimpleClass(relationship.getType()), entityDef.getName());
                         }
                         relationshipAnnotation.append("mappedBy = \"").append(mappedBy).append("\", ");
                     }
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-2); // remove last comma
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-1); // remove last space
+                    if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 1); // remove last space
+                    }
                     relationshipAnnotation.append(")");
                     relationship.addAnnotation(relationshipAnnotation.toString());
 
@@ -572,8 +564,10 @@ public class AnnotationBuilder {
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
                     }
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-2); // remove last comma
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-1); // remove last space
+                    if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 1); // remove last space
+                    }
                     relationshipAnnotation.append(")");
                     relationship.addAnnotation(relationshipAnnotation.toString());
 
@@ -585,8 +579,10 @@ public class AnnotationBuilder {
                 case ManyToMany:
                     relationshipAnnotation.append("@javax.persistence.ManyToMany(fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
                     relationshipAnnotation.append(StringUtils.isNotBlank(cascade) ? cascade : "");
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-2); // remove last comma
-                    relationshipAnnotation.deleteCharAt(relationshipAnnotation.length()-1); // remove last space
+                    if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
+                        relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 1); // remove last space
+                    }
                     relationshipAnnotation.append(")");
                     relationship.addAnnotation(relationshipAnnotation.toString());
 
@@ -637,7 +633,14 @@ public class AnnotationBuilder {
             }
 
             if (StringUtils.isNotBlank(relationship.getOrderColumn())) {
-                relationship.addAnnotation("@javax.persistence.OrderBy(\"" + relationship.getOrderColumn() + "\")");
+                String orderColumn = relationship.getOrderColumn();
+                for (final JpaColumn refColumn : relationship.getReferencedColumns()) {
+                    if (refColumn.getColumnName().equals(orderColumn)) {
+                        orderColumn = refColumn.getName();
+                        break;
+                    }
+                }
+                relationship.addAnnotation("@javax.persistence.OrderBy(\"" + orderColumn + "\")");
             }
         }
     }

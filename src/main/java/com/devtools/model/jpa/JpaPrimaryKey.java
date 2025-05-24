@@ -21,7 +21,6 @@ public class JpaPrimaryKey extends JpaAnnotation {
     public static final String PARAMS_ALLOCATION_SIZE = "allocationSize";
     public static final String PARAMS_PROPERTY = "property";
 
-    private String type;
     private String columnName;
     private String generatorType;
     private final Map<String, String> generatorParams = new HashMap<>();

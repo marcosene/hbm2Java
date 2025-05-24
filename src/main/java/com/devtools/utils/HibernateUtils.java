@@ -9,47 +9,66 @@ import java.util.Set;
 import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
+import org.checkerframework.checker.units.qual.N;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalDateTime;
 import org.joda.time.LocalTime;
 
 public interface HibernateUtils {
+
+    Set<String> PRIMITIVE_TYPES = new HashSet<>(Arrays.asList(
+            "int", "long", "float", "double", "boolean", "char", "byte", "short"
+    ));
+
+    Set<String> NATIVE_TYPES = new HashSet<>(Arrays.asList(
+            "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
+            "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
+    ));
+
     static String mapHibernateTypeToJava(final String hibernateType) {
+        return mapHibernateTypeToJava(hibernateType, false);
+    }
+
+    static String mapHibernateTypeToJava(final String hibernateType, final boolean fullName) {
         if (hibernateType == null) {
             return null;
         }
-        return switch (hibernateType.toLowerCase()) {
-            case "string", "text", "character", "char" -> String.class.getSimpleName();
-            case "integer", "int" -> Integer.class.getSimpleName();
-            case "long", "big_integer" -> Long.class.getSimpleName();
-            case "short" -> Short.class.getSimpleName();
-            case "byte" -> Byte.class.getSimpleName();
-            case "boolean", "yes_no", "numeric_boolean" -> Boolean.class.getSimpleName();
-            case "double", "float", "big_decimal", "decimal" -> Double.class.getSimpleName();
-            case "date", "timestamp", "time" -> Date.class.getSimpleName();
-            case "localdate" -> LocalDate.class.getCanonicalName();
-            case "localdatetime" -> LocalDateTime.class.getCanonicalName();
-            case "localtime" -> LocalTime.class.getCanonicalName();
-            case "uuid" -> UUID.class.getSimpleName();
-            case "binary", "blob" -> "byte[]";
-            case "clob" -> String.class.getSimpleName();  // Usually treated as a large String in JPA
-            case "serializable" -> Serializable.class.getSimpleName();
-            case "set", "bag", "list", "map" -> Collection.class.getSimpleName();
+        final Class<?> clazz = switch (hibernateType.toLowerCase()) {
+            case "string", "text", "character", "char" -> String.class;
+            case "integer", "int" -> Integer.class;
+            case "long", "big_integer" -> Long.class;
+            case "short" -> Short.class;
+            case "byte" -> Byte.class;
+            case "boolean", "yes_no", "numeric_boolean" -> Boolean.class;
+            case "double", "float", "big_decimal", "decimal" -> Double.class;
+            case "date", "timestamp", "time" -> Date.class;
+            case "localdate" -> LocalDate.class;
+            case "localdatetime" -> LocalDateTime.class;
+            case "localtime" -> LocalTime.class;
+            case "uuid" -> UUID.class;
+            case "clob" -> String.class;  // Usually treated as a large String in JPA
+            case "serializable" -> Serializable.class;
+            case "set", "bag", "list", "map" -> Collection.class;
 
             // Fallback for complex or custom types
-            default -> hibernateType.endsWith("UserType") ?
-                    hibernateType.replace("UserType", "") : hibernateType;  // Return as it is for user-defined or custom types
+            default -> null;
         };
+
+        if (clazz != null) {
+            return fullName ? clazz.getCanonicalName() : clazz.getName();
+        } else {
+            return fullName ? hibernateType : Utils.getSimpleClass(hibernateType);
+        }
     }
 
     // Helper method to check for native types
+    static boolean isPrimitiveType(final String type) {
+        return PRIMITIVE_TYPES.contains(type);
+    }
+
+    // Helper method to check for custom types
     static boolean isCustomType(final String type) {
-        final Set<String> nativeTypes = new HashSet<>(Arrays.asList(
-                "int", "long", "float", "double", "boolean", "char", "byte", "short", "Short",
-                "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
-                "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
-        ));
-        return !nativeTypes.contains(type);
+        return !NATIVE_TYPES.contains(type) && !PRIMITIVE_TYPES.contains(type);
     }
 
     static String getDiscriminatorType(final String type) {

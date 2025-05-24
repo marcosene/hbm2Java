@@ -16,12 +16,11 @@ public class JpaRelationship extends JpaAnnotation {
         OneToMany, OneToOne, ManyToOne, ManyToMany
     }
 
-    private String targetEntity;
-    private Type type;
+    private Type relationshipType;
+    private String collectionType;
     private String fetch;
     private String cascade;
     private boolean inverse = false;
-    private String collectionType;
     private String orderColumn;
     private String access;
     private String table;
@@ -29,12 +28,8 @@ public class JpaRelationship extends JpaAnnotation {
     private String mappedBy;
     private List<JpaColumn> referencedColumns = new ArrayList<>();
 
-    public void setName(final String name) {
-        this.name = StringUtils.isNotBlank(name) ? name : null;
-    }
-
-    public void setTargetEntity(final String targetEntity) {
-        this.targetEntity = StringUtils.isNotBlank(targetEntity) ? targetEntity : null;
+    public void setCollectionType(final String collectionType) {
+        this.collectionType = StringUtils.isNotBlank(collectionType) ? collectionType : null;
     }
 
     public void setFetch(final String fetch) {
@@ -44,10 +39,6 @@ public class JpaRelationship extends JpaAnnotation {
     public void setCascade(final String cascade, final String defaultCascade) {
         this.cascade = StringUtils.isNotBlank(cascade) ? cascade :
                 StringUtils.isNotBlank(defaultCascade) && !"none".equals(defaultCascade) ? defaultCascade : null;
-    }
-
-    public void setCollectionType(final String collectionType) {
-        this.collectionType = StringUtils.isNotBlank(collectionType) ? collectionType : null;
     }
 
     public void setOrderColumn(final String orderColumn) {

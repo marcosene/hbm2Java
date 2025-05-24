@@ -74,8 +74,8 @@ public class EntityGenerator {
 
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
             // Add to imports if it's not a native type
-            if (HibernateUtils.isCustomType(Utils.getSimpleClass(relationship.getTargetEntity()))) {
-                importClasses.add(relationship.getTargetEntity());
+            if (HibernateUtils.isCustomType(Utils.getSimpleClass(relationship.getType()))) {
+                importClasses.add(relationship.getType());
             }
 
             getColumnImportClasses(relationship.getReferencedColumns(), importClasses);
@@ -179,19 +179,14 @@ public class EntityGenerator {
 
     private void generateRelationships(final JpaEntity entityDef, final StringBuilder entityCode) {
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
-            if (relationship.isInverse()) {
-                entityCode.append("    // TODO check correct name for 'mappedBy' in the class ");
-                entityCode.append(relationship.getTargetEntity()).append("\n");
-            }
-
             for (final String annotation : relationship.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
 
             // Add the generated relationship field
             entityCode.append("    private ");
-            if (relationship.getType().equals(JpaRelationship.Type.OneToMany) ||
-                    relationship.getType().equals(JpaRelationship.Type.ManyToMany)) {
+            if (relationship.getRelationshipType().equals(JpaRelationship.Type.OneToMany) ||
+                    relationship.getRelationshipType().equals(JpaRelationship.Type.ManyToMany)) {
                 switch (relationship.getCollectionType()) {
                     case Tags.TAG_SET:
                         entityCode.append("Set<");
@@ -207,13 +202,13 @@ public class EntityGenerator {
 
             if (Tags.TAG_MAP.equals(relationship.getCollectionType())) {
                 entityCode.append(relationship.getReferencedColumns().get(0).getType()).append(", ");
-                entityCode.append(relationship.getTargetEntity());
+                entityCode.append(relationship.getType());
             } else {
-                entityCode.append(Utils.getSimpleClass(relationship.getTargetEntity()));
+                entityCode.append(Utils.getSimpleClass(relationship.getType()));
             }
 
-            if (relationship.getType().equals(JpaRelationship.Type.OneToMany) ||
-                    relationship.getType().equals(JpaRelationship.Type.ManyToMany)) {
+            if (relationship.getRelationshipType().equals(JpaRelationship.Type.OneToMany) ||
+                    relationship.getRelationshipType().equals(JpaRelationship.Type.ManyToMany)) {
                 entityCode.append(">");
             }
             entityCode.append(" ").append(relationship.getName()).append(";\n\n");

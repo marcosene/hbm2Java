@@ -4,9 +4,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import org.apache.commons.lang3.StringUtils;
 
 @Getter
@@ -18,7 +15,6 @@ public class JpaColumn extends JpaAnnotation {
         NONE, MUTABLE, IMMUTABLE
     }
 
-    private String type;
     private String columnName;
     private Integer length = 255;
     private boolean nullable = true;
@@ -38,36 +34,6 @@ public class JpaColumn extends JpaAnnotation {
     private String columnDefinition;
     private Integer precision = 0;
     private Integer scale = 0;
-    private Map<String, String> typeParams = new LinkedHashMap<>();
-
-    public String getType(final boolean returnType) {
-        if (!typeParams.isEmpty() && returnType && typeParams.containsKey("enumClass")) {
-            return typeParams.get("enumClass");
-        }
-        if (type != null && returnType) {
-            final String normalizedReturnType = type.endsWith("UserType") ? type.replace("UserType", "") :
-                    type.endsWith("Type") ? type.replace("Type", "") : type;
-            return normalizedReturnType.replace(".usertypes", "");
-        } else {
-            return type;
-        }
-    }
-
-    public String getType() {
-        return getType(true);
-    }
-
-    public void setType(final String type) {
-        if (StringUtils.isNotBlank(type)) {
-            this.type = type;
-        }
-    }
-
-    public void setName(final String name) {
-        if (StringUtils.isNotBlank(name)) {
-            this.name = name;
-        }
-    }
 
     public void setColumnName(final String columnName) {
         if (StringUtils.isNotBlank(columnName)) {
@@ -109,9 +75,5 @@ public class JpaColumn extends JpaAnnotation {
         if (StringUtils.isNotBlank(columnDefinition)) {
             this.columnDefinition = columnDefinition;
         }
-    }
-
-    public void addTypeParam(final String key, final String value) {
-        typeParams.put(key, value);
     }
 }

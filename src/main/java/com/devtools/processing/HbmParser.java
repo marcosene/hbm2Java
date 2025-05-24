@@ -366,7 +366,7 @@ public class HbmParser {
         final List<Element> manyToOneElements = DomUtils.getChildrenByTag(element, Tags.TAG_MANY_TO_ONE);
         for (final Element relationshipElement : manyToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
-            relationship.setType(JpaRelationship.Type.ManyToOne);
+            relationship.setRelationshipType(JpaRelationship.Type.ManyToOne);
             relationship.setFetch("eager");
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
         }
@@ -374,20 +374,20 @@ public class HbmParser {
         final List<Element> oneToOneElements = DomUtils.getChildrenByTag(element, Tags.TAG_ONE_TO_ONE);
         for (final Element relationshipElement : oneToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
-            relationship.setType(JpaRelationship.Type.OneToOne);
+            relationship.setRelationshipType(JpaRelationship.Type.OneToOne);
             relationship.setFetch("eager");
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
         final List<Element> oneToManyElements = DomUtils.getChildrenByTag(element, Tags.TAG_ONE_TO_MANY);
         for (final Element relationshipElement : oneToManyElements) {
-            collectionRelationship.setType(JpaRelationship.Type.OneToMany);
+            collectionRelationship.setRelationshipType(JpaRelationship.Type.OneToMany);
             parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
 
         final List<Element> manyToManyElements = DomUtils.getChildrenByTag(element, Tags.TAG_MANY_TO_MANY);
         for (final Element relationshipElement : manyToManyElements) {
-            collectionRelationship.setType(JpaRelationship.Type.ManyToMany);
+            collectionRelationship.setRelationshipType(JpaRelationship.Type.ManyToMany);
             parseRelationship(collectionRelationship, relationshipElement, entityDef, uniqueConstraintName);
         }
     }
@@ -395,7 +395,7 @@ public class HbmParser {
     private void parseRelationship(final JpaRelationship relationship, final Element relationshipElement,
             final JpaEntity entityDef, final String uniqueConstraintName) {
         final String name = relationshipElement.getAttribute(Attributes.ATTR_NAME);
-        final String targetEntity = relationshipElement.getAttribute(Attributes.ATTR_CLASS);
+        final String type = relationshipElement.getAttribute(Attributes.ATTR_CLASS);
         final String cascade = relationshipElement.getAttribute(Attributes.ATTR_CASCADE);
         final String access = relationshipElement.getAttribute(Attributes.ATTR_ACCESS);
         final String index = relationshipElement.getAttribute(Attributes.ATTR_INDEX);
@@ -409,7 +409,7 @@ public class HbmParser {
         if (StringUtils.isBlank(relationship.getName())) {
             relationship.setName(name);
         }
-        relationship.setTargetEntity(targetEntity);
+        relationship.setType(type);
 
         if (StringUtils.isNotBlank(relationshipElement.getAttribute(Attributes.ATTR_LAZY))) {
             relationship.setFetch("false".equals(relationshipElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
@@ -523,6 +523,7 @@ public class HbmParser {
                 if (StringUtils.isBlank(keyColumn.getType())) {
                     keyColumn.setType(keyProperty.getAttribute(Attributes.ATTR_TYPE));
                 }
+                keyColumn.setComposite(true);
                 keyColumn.setName(keyProperty.getAttribute(Attributes.ATTR_NAME));
                 keyColumn.setColumnName(keyProperty.getAttribute(Attributes.ATTR_COLUMN));
                 relationship.addReferencedColumn(keyColumn);

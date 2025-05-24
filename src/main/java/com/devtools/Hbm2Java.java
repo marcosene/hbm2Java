@@ -2,6 +2,7 @@ package com.devtools;
 
 import java.io.File;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -12,6 +13,7 @@ import org.apache.commons.logging.LogFactory;
 import com.devtools.model.jpa.JpaBase;
 import com.devtools.model.jpa.JpaColumn;
 import com.devtools.model.jpa.JpaEntity;
+import com.devtools.model.jpa.JpaRelationship;
 import com.devtools.processing.AnnotationApplier;
 import com.devtools.processing.AnnotationBuilder;
 import com.devtools.processing.EntityGenerator;
@@ -136,16 +138,23 @@ public class Hbm2Java {
                 }
             }
 
-            for (final JpaColumn jpaColumn : jpaEntity.getColumns()) {
-                if (jpaColumn.isComposite()) {
-                    final String embeddableClass = Utils.getSimpleClass(jpaColumn.getType());
-                    JpaEntity embeddable = jpaEntityMap.get(embeddableClass);
-                    if (embeddable == null) {
-                        embeddable = new JpaEntity();
-                        embeddable.setName(embeddableClass);
-                        embeddable.setEmbeddable(true);
-                        jpaEntityMap.put(embeddableClass, embeddable);
-                    }
+            setCompositeColumnEmbeddable(jpaEntityMap, jpaEntity.getColumns());
+            for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
+                setCompositeColumnEmbeddable(jpaEntityMap, jpaRelationship.getReferencedColumns());
+            }
+        }
+    }
+
+    private static void setCompositeColumnEmbeddable(final Map<String, JpaEntity> jpaEntityMap, final List<JpaColumn> columns) {
+        for (final JpaColumn jpaColumn : columns) {
+            if (jpaColumn.isComposite()) {
+                final String embeddableClass = Utils.getSimpleClass(jpaColumn.getType());
+                JpaEntity embeddable = jpaEntityMap.get(embeddableClass);
+                if (embeddable == null) {
+                    embeddable = new JpaEntity();
+                    embeddable.setName(embeddableClass);
+                    embeddable.setEmbeddable(true);
+                    jpaEntityMap.put(embeddableClass, embeddable);
                 }
             }
         }

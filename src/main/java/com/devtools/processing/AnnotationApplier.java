@@ -19,6 +19,7 @@ import org.apache.commons.logging.LogFactory;
 import com.devtools.model.jpa.JpaAnnotation;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaPrimaryKey;
+import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.Utils;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
@@ -34,6 +35,12 @@ import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.resolution.Resolvable;
+import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 
 public class AnnotationApplier {
 
@@ -69,6 +76,11 @@ public class AnnotationApplier {
         }
 
         // Parse the file
+        final CombinedTypeSolver typeSolver = new CombinedTypeSolver();
+        typeSolver.add(new ReflectionTypeSolver());
+        final JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
+        StaticJavaParser.getConfiguration().setSymbolResolver(symbolSolver);
+
         final CompilationUnit cu = StaticJavaParser.parse(path);
         final ClassOrInterfaceDeclaration clazz = cu.findAll(ClassOrInterfaceDeclaration.class).get(0);
         final AtomicBoolean hasChanged = new AtomicBoolean(false);
@@ -95,14 +107,7 @@ public class AnnotationApplier {
 
                 allFields.stream()
                         .filter(jpaAnnotation -> jpaAnnotation.getName() != null && jpaAnnotation.getName().equals(variable.getNameAsString()))
-                        .forEach(jpaAnnotation -> {
-                            for (final String importString : jpaAnnotation.getImports()) {
-                                cu.addImport(importString);
-                            }
-                            addAnnotations(jpaAnnotation.getAnnotations(), field);
-                            jpaAnnotation.setProcessed(true);
-                            hasChanged.set(true);
-                        });
+                        .forEach(jpaAnnotation -> processJpaAnnotation(field, jpaAnnotation, cu, hasChanged));
             }
         });
 
@@ -112,14 +117,7 @@ public class AnnotationApplier {
         nonStandardGetters.forEach((nonStandardName, field) -> allFields.stream()
                 .filter(jpaAnnotation -> !jpaAnnotation.isProcessed() && jpaAnnotation.getName() != null &&
                         jpaAnnotation.getName().equals(nonStandardName))
-                .forEach(jpaAnnotation -> {
-                    for (final String importString : jpaAnnotation.getImports()) {
-                        cu.addImport(importString);
-                    }
-                    addAnnotations(jpaAnnotation.getAnnotations(), field);
-                    jpaAnnotation.setProcessed(true);
-                    hasChanged.set(true);
-                }));
+                .forEach(jpaAnnotation -> processJpaAnnotation(field, jpaAnnotation, cu, hasChanged)));
 
         // Write the modified file back
         if (hasChanged.get()) {
@@ -144,6 +142,58 @@ public class AnnotationApplier {
             final String parentClass = resolvedType.getName().asString();
             writeAnnotations(entity, outputFolder, parentClass, true);
         }
+    }
+
+    private void processJpaAnnotation(final FieldDeclaration field, final JpaAnnotation jpaAnnotation, final CompilationUnit cu,
+            final AtomicBoolean hasChanged) {
+        if (jpaAnnotation.getType() != null) {
+            final String annotationType = Utils.getSimpleClass(
+                    HibernateUtils.mapHibernateTypeToJava(jpaAnnotation.getType(false), true));
+            final String fieldType = Utils.getSimpleClass(extractFullType(field.getVariables().get(0).getType()));
+
+            // Add @Type when the annotation type is different of the field return type
+            if (!HibernateUtils.isPrimitiveType(fieldType) && !"Map".equals(fieldType) &&
+                    !annotationType.equals(fieldType)) {
+                final StringBuilder typeAnnotation = new StringBuilder();
+                typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaAnnotation.getType(false))
+                        .append("\"");
+                if (!jpaAnnotation.getTypeParams().isEmpty()) {
+                    typeAnnotation.append(",\n        parameters = {\n");
+                    for (final Map.Entry<String, String> entry : jpaAnnotation.getTypeParams().entrySet()) {
+                        typeAnnotation.append("            @org.hibernate.annotations.Parameter(name = \"").append(
+                                entry.getKey());
+                        typeAnnotation.append("\", value = \"").append(entry.getValue()).append("\"),\n");
+                    }
+                    typeAnnotation.append("        }\n    ");
+                }
+                typeAnnotation.append(")");
+                addAnnotations(List.of(typeAnnotation.toString()), field);
+            }
+        }
+
+        for (final String importString : jpaAnnotation.getImports()) {
+            cu.addImport(importString);
+        }
+        addAnnotations(jpaAnnotation.getAnnotations(), field);
+        jpaAnnotation.setProcessed(true);
+        hasChanged.set(true);
+    }
+
+    // This method returns the generic type if present, otherwise the base type
+    private static String extractFullType(final Type type) {
+        if (type.isClassOrInterfaceType()) {
+            final ClassOrInterfaceType cit = type.asClassOrInterfaceType();
+            if (cit.getTypeArguments().isPresent()) {
+                return cit.getTypeArguments().get().get(0).asString(); // get first generic
+            }
+        }
+        try {
+            if (type instanceof Resolvable) {
+                final ResolvedType resolved = type.resolve();
+                return resolved.describe(); // Fully qualified name
+            }
+        } catch (final Exception ignored) {}
+        return type.asString();
     }
 
     private void insertPrimaryKey(final JpaPrimaryKey primaryKey,
