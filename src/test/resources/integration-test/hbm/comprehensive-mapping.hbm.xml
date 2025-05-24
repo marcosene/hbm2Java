@@ -1,0 +1,234 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+    "-//Hibernate/Hibernate Mapping DTD 3.0//EN"
+    "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping package="com.example.model" default-cascade="save-update">
+
+    <!-- Main entity with all class attributes -->
+    <class name="Company" table="companies" schema="hr" catalog="main_db" 
+           dynamic-insert="true" dynamic-update="true" mutable="true">
+        
+        <!-- Cache configuration -->
+        <cache usage="read-write" region="company-cache"/>
+        
+        <!-- Primary key with generator -->
+        <id name="id" column="company_id" type="long">
+            <generator class="sequence">
+                <param name="sequence">company_seq</param>
+                <param name="allocation_size">1</param>
+            </generator>
+        </id>
+        
+        <!-- Discriminator for inheritance -->
+        <discriminator column="company_type" type="string" length="20"/>
+        
+        <!-- Version for optimistic locking with column tag -->
+        <version name="modCount" type="int">
+            <column name="MODCOUNT"/>
+        </version>
+        
+        <!-- Basic properties with various column attributes -->
+        <property name="name" column="company_name" type="string" 
+                  length="100" not-null="true" unique="true" index="idx_company_name"/>
+        
+        <property name="description" type="text" length="1000"/>
+        
+        <property name="foundedDate" column="founded_date" type="date"/>
+        
+        <!-- Property with explicit column tag and ALL attributes from Attributes.java -->
+        <property name="revenue" type="big_decimal">
+            <column name="revenue_amount" 
+                    length="15" 
+                    precision="15" 
+                    scale="2" 
+                    not-null="true" 
+                    unique="false" 
+                    unique-key="uk_revenue_tax" 
+                    index="idx_revenue" 
+                    sql-type="DECIMAL(15,2)" 
+                    default="0.00"/>
+        </property>
+        
+        <property name="active" type="boolean" not-null="true"/>
+        
+        <!-- Another property with column tag for different attributes -->
+        <property name="registrationNumber" type="string">
+            <column name="reg_number" 
+                    length="50" 
+                    not-null="true" 
+                    unique="true" 
+                    index="idx_reg_number" 
+                    default="'PENDING'" 
+                    comment="Company registration number"/>
+        </property>
+        
+        <!-- Component/Embedded object -->
+        <component name="headquarters" class="Address">
+            <property name="street" column="hq_street" length="200"/>
+            <property name="city" column="hq_city" length="100"/>
+            <property name="zipCode" column="hq_zip" length="20"/>
+            <property name="country" column="hq_country" length="50"/>
+        </component>
+        
+        <!-- One-to-many relationship with set collection -->
+        <set name="employees" table="employees" cascade="all" 
+             fetch="lazy" inverse="true" order-by="last_name">
+            <key column="company_id" foreign-key="fk_emp_company"/>
+            <one-to-many class="Employee"/>
+        </set>
+        
+        <!-- One-to-many relationship with list collection -->
+        <list name="departments" table="departments" cascade="save-update" fetch="lazy">
+            <key column="company_id"/>
+            <list-index column="dept_order"/>
+            <one-to-many class="Department"/>
+        </list>
+        
+        <!-- Many-to-many relationship -->
+        <set name="projects" table="company_projects" cascade="save-update">
+            <key column="company_id" foreign-key="fk_company_projects"/>
+            <many-to-many class="Project" column="project_id"/>
+        </set>
+        
+        <!-- Map collection with map-key -->
+        <map name="departmentBudgets" table="company_dept_budgets">
+            <key column="company_id"/>
+            <map-key type="string" column="dept_name"/>
+            <element type="big_decimal" column="budget_amount"/>
+        </map>
+        
+        <!-- Map collection with composite-map-key -->
+        <map name="employeeRatings" table="company_emp_ratings">
+            <key column="company_id"/>
+            <composite-map-key class="EmployeeKey">
+                <key-property name="employeeId" column="emp_id" type="long"/>
+                <key-property name="year" column="rating_year" type="integer"/>
+            </composite-map-key>
+            <element type="integer" column="rating_value"/>
+        </map>
+        
+        <!-- Natural ID -->
+        <natural-id>
+            <property name="taxId" column="tax_id" length="50"/>
+        </natural-id>
+        
+        <!-- Join for secondary table -->
+        <join table="main_table">
+            <key column="company_id"/>
+            <property name="detailedDescription" column="detailed_desc" type="text"/>
+            <property name="establishedYear" column="established_year" type="integer"/>
+        </join>
+        
+    </class>
+    
+    <!-- Subclass for inheritance -->
+    <subclass name="PublicCompany" extends="Company" discriminator-value="PUBLIC">
+        <property name="stockSymbol" column="stock_symbol" length="10"/>
+        <property name="marketCap" column="market_cap" type="big_decimal"/>
+    </subclass>
+    
+    <!-- Employee entity with relationships -->
+    <class name="Employee" table="employees">
+        <cache usage="read-only"/>
+        
+        <id name="id" column="emp_id" type="long">
+            <generator class="identity"/>
+        </id>
+        
+        <property name="firstName" column="first_name" length="50" not-null="true"/>
+        <property name="lastName" column="last_name" length="50" not-null="true"/>
+        
+        <!-- Email with explicit column tag -->
+        <property name="email" type="string">
+            <column name="email_address" 
+                    length="100" 
+                    unique="true" 
+                    not-null="false" 
+                    index="idx_email" 
+                    check="email_address LIKE '%@%'"/>
+        </property>
+        
+        <property name="salary" type="big_decimal" precision="10" scale="2"/>
+        <property name="hireDate" column="hire_date" type="date"/>
+        
+        <!-- Many-to-one relationship -->
+        <many-to-one name="company" class="Company" column="company_id" 
+                     cascade="none" fetch="lazy" foreign-key="fk_emp_company"/>
+        
+        <!-- Many-to-one relationship to department -->
+        <many-to-one name="department" class="Department" column="dept_id"/>
+        
+        <!-- One-to-one relationship -->
+        <one-to-one name="address" class="Address" cascade="all"/>
+        
+    </class>
+    
+    <!-- Department entity -->
+    <class name="Department" table="departments">
+        <id name="id" column="dept_id" type="long">
+            <generator class="auto"/>
+        </id>
+        
+        <property name="name" column="dept_name" length="100" not-null="true"/>
+        
+        <!-- Budget with explicit column tag and all attributes -->
+        <property name="budget" type="big_decimal">
+            <column name="dept_budget" 
+                    precision="12" 
+                    scale="2" 
+                    not-null="false" 
+                    default="0.00" 
+                    sql-type="DECIMAL(12,2)" 
+                    check="dept_budget >= 0"/>
+        </property>
+        
+        <!-- Many-to-one back to company -->
+        <many-to-one name="company" class="Company" column="company_id"/>
+        
+        <!-- One-to-many to employees -->
+        <set name="employees" inverse="true">
+            <key column="dept_id"/>
+            <one-to-many class="Employee"/>
+        </set>
+        
+    </class>
+    
+    <!-- Address entity (can be embedded or standalone) -->
+    <class name="Address" table="addresses">
+        <id name="id" column="addr_id" type="long">
+            <generator class="assigned"/>
+        </id>
+        
+        <property name="street" length="200"/>
+        <property name="city" length="100"/>
+        <property name="zipCode" column="zip_code" length="20"/>
+        <property name="country" length="50"/>
+        
+    </class>
+    
+    <!-- Project entity for many-to-many -->
+    <class name="Project" table="projects">
+        <id name="id" column="project_id" type="long">
+            <generator class="table">
+                <param name="table">hibernate_sequences</param>
+                <param name="column">next_val</param>
+                <param name="segment_column">sequence_name</param>
+                <param name="segment_value">project_seq</param>
+            </generator>
+        </id>
+        
+        <property name="name" column="project_name" length="100" not-null="true"/>
+        <property name="description" type="text"/>
+        <property name="startDate" column="start_date" type="date"/>
+        <property name="endDate" column="end_date" type="date"/>
+        
+        <!-- Many-to-many back to companies -->
+        <set name="companies" table="company_projects" inverse="true">
+            <key column="project_id"/>
+            <many-to-many class="Company" column="company_id"/>
+        </set>
+        
+    </class>
+    
+</hibernate-mapping>

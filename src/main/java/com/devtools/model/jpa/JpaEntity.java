@@ -85,8 +85,16 @@ public class JpaEntity extends JpaAnnotation {
         this.dynamicInsert = StringUtils.isNotBlank(dynamicInsert) && Boolean.parseBoolean(dynamicInsert);
     }
 
+    public boolean isDynamicInsert() {
+        return dynamicInsert;
+    }
+
     public void setDynamicUpdate(final String dynamicUpdate) {
         this.dynamicUpdate = StringUtils.isNotBlank(dynamicUpdate) && Boolean.parseBoolean(dynamicUpdate);
+    }
+
+    public boolean isDynamicUpdate() {
+        return dynamicUpdate;
     }
 
     public void setAbstractClass(final String abstractClass) {
