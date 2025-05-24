@@ -23,8 +23,10 @@
         <!-- Discriminator for inheritance -->
         <discriminator column="company_type" type="string" length="20"/>
         
-        <!-- Version for optimistic locking -->
-        <version name="version" column="version_num" type="integer"/>
+        <!-- Version for optimistic locking with column tag -->
+        <version name="modCount" type="int">
+            <column name="MODCOUNT"/>
+        </version>
         
         <!-- Basic properties with various column attributes -->
         <property name="name" column="company_name" type="string" 
@@ -85,14 +87,38 @@
         
         <!-- Many-to-many relationship -->
         <set name="projects" table="company_projects" cascade="save-update">
-            <key column="company_id"/>
+            <key column="company_id" foreign-key="fk_company_projects"/>
             <many-to-many class="Project" column="project_id"/>
         </set>
+        
+        <!-- Map collection with map-key -->
+        <map name="departmentBudgets" table="company_dept_budgets">
+            <key column="company_id"/>
+            <map-key type="string" column="dept_name"/>
+            <element type="big_decimal" column="budget_amount"/>
+        </map>
+        
+        <!-- Map collection with composite-map-key -->
+        <map name="employeeRatings" table="company_emp_ratings">
+            <key column="company_id"/>
+            <composite-map-key class="EmployeeKey">
+                <key-property name="employeeId" column="emp_id" type="long"/>
+                <key-property name="year" column="rating_year" type="integer"/>
+            </composite-map-key>
+            <element type="integer" column="rating_value"/>
+        </map>
         
         <!-- Natural ID -->
         <natural-id>
             <property name="taxId" column="tax_id" length="50"/>
         </natural-id>
+        
+        <!-- Join for secondary table -->
+        <join table="main_table">
+            <key column="company_id"/>
+            <property name="detailedDescription" column="detailed_desc" type="text"/>
+            <property name="establishedYear" column="established_year" type="integer"/>
+        </join>
         
     </class>
     

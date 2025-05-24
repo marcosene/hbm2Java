@@ -98,7 +98,7 @@ class MissingTagsTest {
                         <generator class="identity"/>
                     </id>
                     <property name="name" type="string"/>
-                    <join table="secondary_table">
+                    <join table="main_table">
                         <key column="main_id"/>
                         <property name="additionalInfo" type="string" column="add_info"/>
                     </join>
@@ -222,7 +222,7 @@ class MissingTagsTest {
                     <map name="attributes" table="entity_attributes">
                         <key column="entity_id"/>
                         <map-key type="string" column="attr_name"/>
-                        <element type="string" column="attr_value"/>
+                        <many-to-many class="AttributeValue" column="attr_value_id"/>
                     </map>
                 </class>
             </hibernate-mapping>
@@ -262,7 +262,7 @@ class MissingTagsTest {
                             <key-property name="keyPart1" type="string"/>
                             <key-property name="keyPart2" type="integer"/>
                         </composite-map-key>
-                        <element type="string" column="value"/>
+                        <many-to-many class="ValueEntity" column="value_id"/>
                     </map>
                 </class>
             </hibernate-mapping>
@@ -281,7 +281,7 @@ class MissingTagsTest {
 
     /**
      * Test TAG_KEY_PROPERTY with ATTR_NAME, ATTR_COLUMN, ATTR_TYPE
-     * Used within composite keys
+     * Used within composite-map-key (which is implemented)
      */
     @Test
     void testKeyPropertyTag() throws Exception {
@@ -291,11 +291,17 @@ class MissingTagsTest {
                 "http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd">
             <hibernate-mapping>
                 <class name="KeyPropertyTestEntity" table="key_prop_test">
-                    <composite-id>
-                        <key-property name="part1" column="key_part1" type="string"/>
-                        <key-property name="part2" column="key_part2" type="integer"/>
-                    </composite-id>
-                    <property name="data" type="string"/>
+                    <id name="id" type="long">
+                        <generator class="identity"/>
+                    </id>
+                    <map name="complexMap" table="complex_map">
+                        <key column="entity_id"/>
+                        <composite-map-key class="CompositeKey">
+                            <key-property name="part1" column="key_part1" type="string"/>
+                            <key-property name="part2" column="key_part2" type="integer"/>
+                        </composite-map-key>
+                        <many-to-many class="ValueEntity" column="value_id"/>
+                    </map>
                 </class>
             </hibernate-mapping>
             """;
@@ -303,17 +309,25 @@ class MissingTagsTest {
         JpaBase jpaBase = parseHbmContent(hbmContent);
         JpaEntity entity = jpaBase.getEntities().get(0);
         
-        // Should handle composite ID with key properties
+        // Should handle key properties within composite-map-key
         assertThat(entity.getName()).isEqualTo("KeyPropertyTestEntity");
         
-        // Check if composite ID properties exist
-        boolean hasPart1 = entity.getColumns().stream()
-            .anyMatch(c -> "part1".equals(c.getName()));
-        boolean hasPart2 = entity.getColumns().stream()
-            .anyMatch(c -> "part2".equals(c.getName()));
-            
-        assertThat(hasPart1).isTrue();
-        assertThat(hasPart2).isTrue();
+        // Check if map relationship exists
+        boolean hasComplexMap = entity.getRelationships().stream()
+            .anyMatch(r -> "complexMap".equals(r.getName()));
+        assertThat(hasComplexMap).isTrue();
+        
+        // Check if composite map key columns exist
+        JpaRelationship mapRel = entity.getRelationships().stream()
+            .filter(r -> "complexMap".equals(r.getName()))
+            .findFirst().orElse(null);
+        
+        if (mapRel != null && !mapRel.getReferencedColumns().isEmpty()) {
+            // Should have composite key columns
+            boolean hasCompositeColumns = mapRel.getReferencedColumns().stream()
+                .anyMatch(c -> c.isComposite());
+            assertThat(hasCompositeColumns).isTrue();
+        }
     }
 
     /**

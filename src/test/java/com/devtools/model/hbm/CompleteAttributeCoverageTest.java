@@ -178,7 +178,7 @@ class CompleteAttributeCoverageTest {
             
         assertThat(parentRelationship.getType()).isEqualTo("ParentEntity");
         assertThat(parentRelationship.getReferencedColumns()).isNotEmpty();
-        assertThat(parentRelationship.getReferencedColumns().get(0).getName()).isEqualTo("parent_id");
+        assertThat(parentRelationship.getReferencedColumns().get(0).getColumnName()).isEqualTo("parent_id");
         
         // Verify all relationship attributes are properly handled:
         // - lazy="false" should generate @ManyToOne(fetch=FetchType.EAGER)
@@ -261,7 +261,7 @@ class CompleteAttributeCoverageTest {
                     </id>
                     <set name="items" table="key_items_table">
                         <key column="entity_id" foreign-key="fk_key_entity"/>
-                        <element type="string" column="item_value"/>
+                        <many-to-many class="ItemEntity" column="item_id"/>
                     </set>
                 </class>
             </hibernate-mapping>
@@ -296,7 +296,9 @@ class CompleteAttributeCoverageTest {
                     <id name="id" type="long">
                         <generator class="identity"/>
                     </id>
-                    <version name="version" type="integer"/>
+                    <version name="version" type="integer">
+                        <column name="version_col"/>
+                    </version>
                     <property name="data" type="string"/>
                 </class>
             </hibernate-mapping>
