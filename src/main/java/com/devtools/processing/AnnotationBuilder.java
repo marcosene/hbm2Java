@@ -380,7 +380,7 @@ public class AnnotationBuilder {
                 col.addAnnotation("@javax.persistence.Basic(fetch = javax.persistence.FetchType.LAZY)");
             }
 
-            col.addAnnotation(buildColumn(entityDef, col));
+            col.addAnnotation(buildColumn(col));
 
             if (!col.isOptimisticLock()) {
                 col.addAnnotation("@org.hibernate.annotations.OptimisticLock(excluded = true)");
@@ -388,12 +388,9 @@ public class AnnotationBuilder {
         }
     }
 
-    private String buildColumn(final JpaEntity entityDef, final JpaColumn col) {
+    private String buildColumn(final JpaColumn col) {
         final StringBuilder columnAnnotation = new StringBuilder();
         columnAnnotation.append("@javax.persistence.Column(");
-        if (entityDef.isSecondTable()) {
-            columnAnnotation.append("table = \"").append(entityDef.getTable()).append("\", ");
-        }
         columnAnnotation.append("name = \"").append(col.getColumnName()).append("\"");
 
         if (col.getLength() != null && col.getLength() != JpaDefaults.DEFAULT_COLUMN_LENGTH) {
@@ -447,7 +444,7 @@ public class AnnotationBuilder {
                 columnAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
                 columnAnnotation.append(com.devtools.utils.StringUtils.toCamelCase(column.getColumnName()));
                 columnAnnotation.append("\", column = ");
-                columnAnnotation.append(buildColumn(entityDef, column));
+                columnAnnotation.append(buildColumn(column));
                 columnAnnotation.append("),\n");
             }
             columnAnnotation.append("    })");
