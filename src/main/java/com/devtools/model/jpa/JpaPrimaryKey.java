@@ -6,9 +6,13 @@ import lombok.Setter;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
+
+import com.devtools.utils.GeneratorUtils;
+
 @Setter
 @Getter
-public class JpaPrimaryKey extends JpaAnnotation {
+public class JpaPrimaryKey extends JpaAbstract {
 
     public static final String PARAMETERS = "parameters";
     public static final String PARAMS_SEQUENCE = "sequence";
@@ -21,6 +25,18 @@ public class JpaPrimaryKey extends JpaAnnotation {
     private String generatorType;
     private final Map<String, String> generatorParams = new HashMap<>();
 
+    public void setColumnName(final String columnName) {
+        if (StringUtils.isNotBlank(columnName)) {
+            this.columnName = columnName;
+        }
+    }
+
+    public void setGeneratorType(final String generatorType) {
+        if (StringUtils.isNotBlank(generatorType)) {
+            this.generatorType = generatorType;
+        }
+    }
+
     public String getGeneratorName() {
         return generatorParams.getOrDefault(PARAMS_SEQUENCE, "");
     }
@@ -29,17 +45,15 @@ public class JpaPrimaryKey extends JpaAnnotation {
         return generatorParams.getOrDefault(PARAMS_MAX_LO, "");
     }
 
-    public String getInitialValue() {
-        return com.devtools.utils.GeneratorUtils.parseGeneratorParameters(PARAMS_INITIAL_VALUE, generatorParams, PARAMETERS);
-    }
-
-    public String getAllocationSize() {
-        return com.devtools.utils.GeneratorUtils.parseGeneratorParameters(PARAMS_ALLOCATION_SIZE, generatorParams, PARAMETERS);
-    }
-
     public String getProperty() {
         return generatorParams.getOrDefault(PARAMS_PROPERTY, "");
     }
 
+    public String getInitialValue() {
+        return GeneratorUtils.parseGeneratorParameters(generatorParams, PARAMS_INITIAL_VALUE);
+    }
 
+    public String getAllocationSize() {
+        return GeneratorUtils.parseGeneratorParameters(generatorParams, PARAMS_ALLOCATION_SIZE);
+    }
 }

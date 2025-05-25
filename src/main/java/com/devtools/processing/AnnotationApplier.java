@@ -1,216 +1,238 @@
 package com.devtools.processing;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.devtools.model.jpa.JpaAnnotation;
+import com.devtools.model.jpa.JpaAbstract;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.utils.ClassNameUtils;
 import com.devtools.utils.FileUtils;
 import com.devtools.utils.HibernateUtils;
-import com.github.javaparser.JavaParser;
-import com.github.javaparser.ParseResult;
-import com.github.javaparser.ParserConfiguration;
+import com.devtools.utils.JavaParserUtils;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.VariableDeclarator;
-import com.github.javaparser.ast.expr.AnnotationExpr;
-import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
-import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
-import com.github.javaparser.ast.type.Type;
-import com.github.javaparser.resolution.types.ResolvedType;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 
 public class AnnotationApplier {
 
     private static final Log LOG = LogFactory.getLog(AnnotationApplier.class);
 
-    private static final JavaParser JAVA_PARSER = new JavaParser();
+    private static final String IGNORE_PROPERTIES = "ignore.properties";
+
+    private final String outputFolder;
 
     // Initialize cache to track processed classes across the entire entity hierarchy
-    private final Map<String, String> processedClasses = new HashMap<>();
-    private final Map<String, List<String>> processedFields = new HashMap<>();
+    private static final Map<String, String> PROCESSED_CLASSES = new HashMap<>();
+    private static final Map<String, Set<String>> PROCESSED_FIELDS = new HashMap<>();
 
-    public void replace(final JpaEntity entity, final String outputFolder) throws IOException {
+    public AnnotationApplier(final String outputFolder) {
+        this.outputFolder = outputFolder;
 
-        writeAnnotations(entity, outputFolder, ClassNameUtils.getPackageName(entity.getType()), entity.getName(), false);
-
-        // Check if some element parsed from the hbm.xml has no corresponding field in the class
-        validateFieldsNotFound(entity);
-
-        // Add annotations to the embeddable classes
-        for (final JpaEntity embeddable : entity.getEmbeddedFields()) {
-            replace(embeddable, outputFolder);
+        if (PROCESSED_CLASSES.isEmpty()) {
+            final Map<String, Set<String>> ignoreFields = FileUtils.readPropertiesFile(IGNORE_PROPERTIES);
+            ignoreFields.keySet().forEach(className -> PROCESSED_CLASSES.put(className, null));
+            PROCESSED_FIELDS.putAll(ignoreFields);
         }
     }
 
-    private void writeAnnotations(final JpaEntity entity, final String outputFolder, final String packageName,
-            final String className, final boolean isParentClass) throws IOException {
-        
-        final String fullClassFilename = FileUtils.findClassPath(new File(outputFolder), packageName, className);
+    public void applyAnnotations(final JpaEntity entity) throws IOException {
 
-        final Path path;
-        try {
-             path = Paths.get(fullClassFilename);
-        } catch (final Exception e) {
-            LOG.warn("Java class not found for " + className + (!isParentClass ? ", generating a new one" : ""));
-            if (!isParentClass) {
+        writeAnnotations(entity, entity.getType(), false);
+
+        // Check if some element parsed from the hbm.xml has no corresponding field in the class
+        validateFieldsNotFound(entity);
+    }
+
+    private void writeAnnotations(final JpaEntity entity, final String fullClassName, final boolean isParentClass)
+            throws IOException {
+        final String simpleClassName = ClassNameUtils.getSimpleClassName(fullClassName);
+
+        // Parse the file
+        final CompilationUnit cu = JavaParserUtils.parseJava(outputFolder, fullClassName);
+        if (cu == null) {
+            if (!isParentClass && !entity.isEmbeddable()) {
+                LOG.warn("Generating a new one in " + outputFolder);
                 final EntityGenerator entityGenerator = new EntityGenerator();
                 entityGenerator.generate(entity, outputFolder);
             }
             return;
         }
 
-        // Parse the file
-        final CompilationUnit cu = parseJava(path);
         final ClassOrInterfaceDeclaration clazz = cu.findAll(ClassOrInterfaceDeclaration.class).get(0);
-        final AtomicBoolean hasChanged = new AtomicBoolean(false);
+        final AtomicBoolean entityChanged = new AtomicBoolean(false);
 
         if (!isParentClass) {
+            // Add imports to the class
+            entity.getImports().forEach(cu::addImport);
+
             // Add Entity annotations to the class
-            for (final String importString : entity.getImports()) {
-                cu.addImport(importString);
-            }
-            addAnnotations(entity.getAnnotations(), clazz);
-            hasChanged.set(true);
+            JavaParserUtils.addAnnotations(entity.getAnnotations(), clazz);
+            entityChanged.set(true);
         }
 
-        final List<JpaAnnotation> allFields = getAllFields(entity);
+        final List<JpaAbstract> allFields = getAllFields(entity);
 
         // Add annotations to the fields
         cu.findAll(FieldDeclaration.class).forEach(field -> {
             for (final VariableDeclarator variable : field.getVariables()) {
-                // @Id must be defined in the class itself, not in the parent
-                if (isParentClass && !clazz.isAnnotationPresent("Entity") && "id".equals(variable.getNameAsString())) {
-                    LOG.warn("An 'id' field was found in the parent class " + className + ", you should probably remove it");
+                // If there is a sequence, the @Id must be defined in the class itself, not in the parent
+                if (isParentClass && entity.getPrimaryKey() != null &&
+                    entity.getPrimaryKey().getName().equalsIgnoreCase(variable.getNameAsString()) &&
+                     StringUtils.isNotBlank(entity.getPrimaryKey().getGeneratorType())) {
+                    LOG.warn("An 'id' field was found in the parent class " + simpleClassName + ", you should probably remove it");
                     continue;
                 }
 
                 allFields.stream()
-                        .filter(jpaAnnotation -> jpaAnnotation.getName() != null && jpaAnnotation.getName().equals(variable.getNameAsString()))
-                        .forEach(jpaAnnotation -> processJpaAnnotation(className, field, jpaAnnotation, cu, hasChanged));
+                        .filter(jpaElement -> !jpaElement.isProcessed() && jpaElement.getName() != null &&
+                                              jpaElement.getName().equals(variable.getNameAsString()))
+                        .forEach(jpaElement -> annotateField(simpleClassName, field, jpaElement, cu, entityChanged));
             }
         });
 
-        // Check now for all non-standard getters (mapped in the hbm.xml with this different name from the field)
-        // Example: getBlaBla() { return bla; } -> in this case "blaBla" was mapped in .hbm.xml, instead of "bla"
-        final Map<String, FieldDeclaration> nonStandardGetters = findFieldsWithNonStandardGetters(clazz);
-        nonStandardGetters.forEach((nonStandardName, field) -> allFields.stream()
-                .filter(jpaAnnotation -> !jpaAnnotation.isProcessed() && jpaAnnotation.getName() != null &&
-                        jpaAnnotation.getName().equals(nonStandardName))
-                .forEach(jpaAnnotation -> processJpaAnnotation(className, field, jpaAnnotation, cu, hasChanged)));
-
-        // Write the modified file back
-        if (hasChanged.get()) {
-            if (isParentClass) {
-                cu.addImport("javax.persistence.MappedSuperclass");
-                addAnnotations(List.of("@MappedSuperclass"), clazz);
-            } else {
-                // If id field was not found in the class (probably it is in the super class)
-                // and it was defined in the mapping, we will create it at the beginning of the class
-                final JpaPrimaryKey primaryKey = entity.getPrimaryKey();
-                if (primaryKey != null && !primaryKey.isProcessed()) {
-                    insertPrimaryKey(primaryKey, clazz, cu);
-                }
-            }
-
-
-            LOG.info("Writing " + (isParentClass ? "parent " : "") + "class: " + className);
-            Files.write(path, cu.toString().getBytes());
+        if (hasPendingFields(entity)) {
+            // Check for all non-standard getters (mapped in the hbm.xml with a different name, instead of the real field name)
+            // Example: getBlaBla() { return bla; } -> in this case "blaBla" was mapped in .hbm.xml, instead of "bla"
+            final Map<String, FieldDeclaration> nonStandardGetters = JavaParserUtils.findFieldsWithNonStandardGetters(
+                    clazz);
+            nonStandardGetters.forEach((nonStandardName, field) -> allFields.stream()
+                    .filter(jpaElement -> !jpaElement.isProcessed() && jpaElement.getName() != null &&
+                                          jpaElement.getName().equals(nonStandardName))
+                    .forEach(jpaElement -> annotateField(simpleClassName, field, jpaElement, cu, entityChanged)));
         }
 
         // Check if some fields are in the parent classes recursively
-        final ClassOrInterfaceDeclaration childClass = cu.getClassByName(className).orElseThrow();
-        if (!childClass.getExtendedTypes().isEmpty()) {
-            final ClassOrInterfaceType resolvedType = childClass.getExtendedTypes().get(0);
-            final String parentPackageName = ClassNameUtils.getPackageName(resolvedType.getNameWithScope());
-            final String parentClass = resolvedType.getName().asString();
+        final Optional<ClassOrInterfaceDeclaration> childClass = cu.getClassByName(simpleClassName);
+        if (childClass.isPresent() && !childClass.get().getExtendedTypes().isEmpty()) {
+            final ClassOrInterfaceType resolvedType = childClass.get().getExtendedTypes().get(0);
+            final String parentSimpleClassName = resolvedType.getName().asString();
+            final String parentFullClassName = resolvedType.getNameWithScope();
 
             // Mark this class as processed
-            processedClasses.put(className, parentClass);
+            PROCESSED_CLASSES.put(simpleClassName, parentSimpleClassName);
 
-            if (!allFieldsProcessed(entity)) {
-                writeAnnotations(entity, outputFolder, parentPackageName, parentClass, true);
+            if (hasPendingFields(entity)) {
+                writeAnnotations(entity, parentFullClassName, true);
             }
+
         } else {
             // Mark this class as processed
-            processedClasses.put(className, null);
+            PROCESSED_CLASSES.put(simpleClassName, null);
+        }
+
+        // Write the modified file back
+        if (entityChanged.get()) {
+            LOG.info("Writing " + (isParentClass ? "parent " : "") + "class: " + simpleClassName);
+            writeFileClass(entity, isParentClass, cu, clazz);
         }
     }
 
-    private boolean allFieldsProcessed(final JpaEntity entity) {
-        final List<String> allParentClasses = new ArrayList<>();
-        String clazz = entity.getName();
-        while (processedClasses.get(clazz) != null) {
-            allParentClasses.add(processedClasses.get(clazz));
-            clazz = processedClasses.get(clazz);
+    private void writeFileClass(final JpaEntity entity, final boolean isParentClass,
+            final CompilationUnit cu, final ClassOrInterfaceDeclaration clazz) throws IOException {
+        if (isParentClass) {
+            cu.addImport("javax.persistence.MappedSuperclass");
+            JavaParserUtils.addAnnotations(List.of("@MappedSuperclass"), clazz);
+        } else {
+            // If id field was not found in the class (probably it is in the super class)
+            // and it was defined in the mapping, we will create it at the beginning of the class
+            final JpaPrimaryKey primaryKey = entity.getPrimaryKey();
+            if (primaryKey != null && !primaryKey.isProcessed()) {
+                insertPrimaryKey(primaryKey, clazz, cu);
+            }
         }
+
+        Files.write(cu.getStorage().orElseThrow().getPath(), cu.toString().getBytes());
+    }
+
+    private static List<JpaAbstract> getAllFields(final JpaEntity entity) {
+        final List<JpaAbstract> allFields = new ArrayList<>();
+        if (entity.getPrimaryKey() != null) {
+            allFields.add(entity.getPrimaryKey());
+        }
+        allFields.addAll(entity.getColumns());
+        allFields.addAll(entity.getCompositeColumns());
+        allFields.addAll(entity.getRelationships());
+        return allFields;
+    }
+
+    private boolean hasPendingFields(final JpaEntity entity) {
+        String clazz = entity.getSimpleName();
+        final List<String> allParentClasses = new ArrayList<>();
+        do {
+            allParentClasses.add(clazz);
+        } while ((clazz = PROCESSED_CLASSES.get(clazz)) != null);
 
         final List<String> allProcessedFields = new ArrayList<>();
         allParentClasses.forEach(pc -> {
-            if (processedFields.containsKey(pc)) {
-                allProcessedFields.addAll(processedFields.get(pc));
+            if (PROCESSED_FIELDS.containsKey(pc)) {
+                allProcessedFields.addAll(PROCESSED_FIELDS.get(pc));
             }
         });
-        getAllFields(entity).forEach(jpaAnnotation -> {
-            if (!jpaAnnotation.isProcessed() &&
-                    allProcessedFields.contains(jpaAnnotation.getName())) {
-                jpaAnnotation.setProcessed(true);
+        getAllFields(entity).forEach(jpaElement -> {
+            if (!jpaElement.isProcessed() &&
+                    allProcessedFields.contains(jpaElement.getName())) {
+                jpaElement.setProcessed(true);
             }
         });
-        return getAllFields(entity).stream().allMatch(JpaAnnotation::isProcessed);
+        return !getAllFields(entity).stream().allMatch(JpaAbstract::isProcessed);
     }
 
-    private static CompilationUnit parseJava(final Path path) throws IOException {
-        final CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver());
+    private void annotateField(final String simpleClassName, final FieldDeclaration field, final JpaAbstract jpaElement,
+            final CompilationUnit cu, final AtomicBoolean entityChanged) {
 
-        final JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-        final ParserConfiguration config = new ParserConfiguration().setSymbolResolver(symbolSolver);
-        final JavaParser parser = new JavaParser(config);
+        addTypeAnnotationIfNeeded(field, jpaElement);
 
-        return parser.parse(path).getResult().orElseThrow();
+        for (final String importString : jpaElement.getImports()) {
+            cu.addImport(importString);
+        }
+        JavaParserUtils.addAnnotations(jpaElement.getAnnotations(), field);
+        jpaElement.setProcessed(true);
+        entityChanged.set(true);
+
+        // Cache processed fields to improve performance
+        final Set<String> classProcessedFields;
+        if (PROCESSED_FIELDS.containsKey(simpleClassName)) {
+            classProcessedFields = PROCESSED_FIELDS.get(simpleClassName);
+        } else {
+            classProcessedFields = new HashSet<>();
+            PROCESSED_FIELDS.put(simpleClassName, classProcessedFields);
+        }
+        classProcessedFields.add(jpaElement.getName());
     }
 
-    private void processJpaAnnotation(final String className, final FieldDeclaration field, final JpaAnnotation jpaAnnotation,
-            final CompilationUnit cu, final AtomicBoolean hasChanged) {
-        if (jpaAnnotation.getType() != null) {
-            final String annotationType = ClassNameUtils.getSimpleClassName(
-                    HibernateUtils.mapHibernateTypeToJava(jpaAnnotation.getType(), true));
-            final String fieldType = ClassNameUtils.getSimpleClassName(extractFullType(field.getVariables().get(0).getType()));
+    private static void addTypeAnnotationIfNeeded(final FieldDeclaration field, final JpaAbstract jpaElement) {
+        if (jpaElement.getType() != null) {
+            final String annotationType = HibernateUtils.mapHibernateTypeToJava(jpaElement.getType());
+            final String fieldType = ClassNameUtils.getSimpleClassName(
+                    JavaParserUtils.resolveGenericType(field.getVariables().get(0).getType()));
 
             // Add @Type when the annotation type is different of the field return type
-            if (!HibernateUtils.isPrimitiveType(fieldType) && !"Map".equals(fieldType) &&
-                    !annotationType.equals(fieldType) &&
-                    jpaAnnotation.getAnnotations().stream().noneMatch(ann -> ann.contains("AttributeOverrides"))) {
+            // except when it's a component (with @AttributeOverrides annotation)
+            if (StringUtils.isNotBlank(fieldType) &&
+                !HibernateUtils.isPrimitiveType(fieldType) && !annotationType.equals(fieldType) &&
+                jpaElement.getAnnotations().stream().noneMatch(ann -> ann.contains("AttributeOverrides"))) {
                 final StringBuilder typeAnnotation = new StringBuilder();
-                typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaAnnotation.getType())
+                typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaElement.getType())
                         .append("\"");
-                if (!jpaAnnotation.getTypeParams().isEmpty()) {
+                if (!jpaElement.getTypeParams().isEmpty()) {
                     typeAnnotation.append(",\n        parameters = {\n");
-                    for (final Map.Entry<String, String> entry : jpaAnnotation.getTypeParams().entrySet()) {
+                    for (final Map.Entry<String, String> entry : jpaElement.getTypeParams().entrySet()) {
                         typeAnnotation.append("            @org.hibernate.annotations.Parameter(name = \"").append(
                                 entry.getKey());
                         typeAnnotation.append("\", value = \"").append(entry.getValue()).append("\"),\n");
@@ -218,41 +240,9 @@ public class AnnotationApplier {
                     typeAnnotation.append("        }\n    ");
                 }
                 typeAnnotation.append(")");
-                addAnnotations(List.of(typeAnnotation.toString()), field);
+                JavaParserUtils.addAnnotations(List.of(typeAnnotation.toString()), field);
             }
         }
-
-        for (final String importString : jpaAnnotation.getImports()) {
-            cu.addImport(importString);
-        }
-        addAnnotations(jpaAnnotation.getAnnotations(), field);
-        jpaAnnotation.setProcessed(true);
-        hasChanged.set(true);
-
-        // Cache processed fields to improve performance
-        final List<String> classProcessedFields;
-        if (processedFields.containsKey(className)) {
-            classProcessedFields = processedFields.get(className);
-        } else {
-            classProcessedFields = new ArrayList<>();
-            processedFields.put(className, classProcessedFields);
-        }
-        classProcessedFields.add(jpaAnnotation.getName());
-    }
-
-    // This method returns the generic type if present, otherwise the base type
-    private static String extractFullType(final Type type) {
-        if (type.isClassOrInterfaceType()) {
-            final ClassOrInterfaceType cit = type.asClassOrInterfaceType();
-            if (cit.getTypeArguments().isPresent()) {
-                return cit.getTypeArguments().get().get(0).asString(); // get first generic
-            }
-        }
-        try {
-            final ResolvedType resolved = type.resolve();
-            return resolved.describe(); // Fully qualified name
-        } catch (final Exception ignored) {}
-        return type.asString();
     }
 
     private void insertPrimaryKey(final JpaPrimaryKey primaryKey,
@@ -276,95 +266,17 @@ public class AnnotationApplier {
         }
 
         clazz.getMembers().add(insertIndex, newField);
+        JavaParserUtils.createGetterAndSetter(clazz, primaryKey.getName());
 
         for (final String importString : primaryKey.getImports()) {
             cu.addImport(importString);
         }
-        addAnnotations(primaryKey.getAnnotations(), newField);
+        JavaParserUtils.addAnnotations(primaryKey.getAnnotations(), newField);
         primaryKey.setProcessed(true);
     }
 
-    private void addAnnotations(final List<String> newAnnotations, final NodeWithAnnotations<?> node) {
-        for (final String annotationString : newAnnotations) {
-            final AnnotationExpr annotation = toAnnotationExpr(annotationString);
-            final String annotationName = annotation.getNameAsString();
-
-            // Check if the node already has the annotation
-            final boolean alreadyAnnotated = node.getAnnotations().stream()
-                    .anyMatch(a -> a.getNameAsString().equals(annotationName));
-
-            if (!alreadyAnnotated) {
-                node.addAnnotation(annotation);
-            }
-        }
-    }
-
-    private AnnotationExpr toAnnotationExpr(final String annotationString) {
-        final String dummyClass = annotationString + "\npublic class Dummy {}";
-
-        final ParseResult<CompilationUnit> parseResult = JAVA_PARSER.parse(dummyClass);
-
-        if (!parseResult.isSuccessful() || parseResult.getResult().isEmpty()) {
-            throw new IllegalArgumentException("Parsing failed: " + parseResult.getProblems());
-        }
-
-        final CompilationUnit cu = parseResult.getResult().get();
-
-        return cu.getClassByName("Dummy")
-                .orElseThrow(() -> new IllegalStateException("Dummy class not found"))
-                .getAnnotation(0);
-    }
-
-    private static Map<String, FieldDeclaration> findFieldsWithNonStandardGetters(final ClassOrInterfaceDeclaration clazz) {
-        final Map<String, FieldDeclaration> nonStandardGetters = new HashMap<>();
-
-        final Map<String, FieldDeclaration> fields = clazz.getFields().stream()
-                .flatMap(f -> f.getVariables().stream().map(v -> Map.entry(v.getNameAsString(), f)))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-        for (final MethodDeclaration method : clazz.getMethods()) {
-            if (method.getBody().isEmpty()) continue;
-
-            method.findAll(ReturnStmt.class).stream()
-                    .map(ReturnStmt::getExpression)
-                    .flatMap(Optional::stream)
-                    .filter(Expression::isNameExpr)
-                    .map(expr -> ((NameExpr) expr).getNameAsString())
-                    .filter(fields::containsKey)
-                    .forEach(fieldName -> {
-                        final String getterName = "get" + Character.toUpperCase(fieldName.charAt(0)) + fieldName.substring(1);
-                        final String actualMethod = method.getNameAsString();
-
-                        if (!actualMethod.equals(getterName)) {
-                            final String syntheticFieldName = uncapitalize(actualMethod.replaceFirst("^get", ""));
-                            if (!nonStandardGetters.containsKey(syntheticFieldName)) {
-                                nonStandardGetters.put(syntheticFieldName, fields.get(fieldName));
-                            }
-                        }
-                    });
-        }
-        return nonStandardGetters;
-    }
-
-    private static String uncapitalize(final String str) {
-        return str.isEmpty() ? str : Character.toLowerCase(str.charAt(0)) + str.substring(1);
-    }
-
     private static void validateFieldsNotFound(final JpaEntity entity) {
-        for (final JpaAnnotation field : getAllFields(entity)) {
-            if (!field.isProcessed()) {
-                LOG.error("Field " + field.getName() + " not found for " + entity.getName());
-            }
-        }
-    }
-
-    private static List<JpaAnnotation> getAllFields(final JpaEntity entity) {
-        final List<JpaAnnotation> allFields = new ArrayList<>();
-        if (entity.getPrimaryKey() != null) {
-            allFields.add(entity.getPrimaryKey());
-        }
-        allFields.addAll(entity.getColumns());
-        allFields.addAll(entity.getRelationships());
-        return allFields;
+        getAllFields(entity).stream().filter(jpaElement -> !jpaElement.isProcessed()).forEach(jpaElement ->
+                LOG.error("Mapping \"" + jpaElement.getName() + "\" not found for " + entity.getSimpleName()));
     }
 }

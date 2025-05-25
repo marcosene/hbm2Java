@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,7 +32,7 @@ public final class HibernateUtils {
 
     /** Set of Java native/wrapper type names. */
     public static final Set<String> NATIVE_TYPES = new HashSet<>(Arrays.asList(
-            "String", "Integer", "Long", "Boolean", "Double", "Float", "Date",
+            "String", "Integer", "Long", "Boolean", "Double", "Float", "Date", "Byte", "Character",
             "BigDecimal", "BigInteger", "List", "Set", "Map", "Collection"
     ));
 
@@ -73,7 +74,8 @@ public final class HibernateUtils {
             case "uuid" -> UUID.class;
             case "clob" -> String.class;  // Usually treated as a large String in JPA
             case "serializable" -> Serializable.class;
-            case "set", "bag", "list", "map" -> Collection.class;
+            case "set", "bag", "list" -> Collection.class;
+            case "map" -> Map.class;
 
             // Fallback for complex or custom types
             default -> null;
@@ -88,7 +90,7 @@ public final class HibernateUtils {
 
     /**
      * Checks if the given type is a Java primitive type.
-     * 
+     *
      * @param type the type name to check
      * @return true if the type is a primitive type, false otherwise
      */

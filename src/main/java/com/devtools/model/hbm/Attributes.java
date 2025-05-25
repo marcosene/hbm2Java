@@ -73,8 +73,7 @@ public final class Attributes {
 
         final List<String> relationshipAttrs = List.of(ATTR_NAME, ATTR_CLASS, ATTR_LAZY, ATTR_CASCADE, ATTR_ACCESS,
                 ATTR_INDEX, ATTR_UPDATE, ATTR_NOT_NULL, ATTR_FOREIGN_KEY, ATTR_UNIQUE, ATTR_COLUMN, ATTR_CONSTRAINED,
-                ATTR_PROPERTY_REF,
-                ATTR_FETCH // we rely on "lazy" attribute
+                ATTR_PROPERTY_REF, ATTR_FETCH
         );
         ATTRIBUTES.put(Tags.TAG_MANY_TO_ONE, relationshipAttrs);
         ATTRIBUTES.put(Tags.TAG_ONE_TO_ONE, relationshipAttrs);
@@ -83,8 +82,8 @@ public final class Attributes {
 
         ATTRIBUTES.put(Tags.TAG_VERSION, List.of(ATTR_NAME, ATTR_TYPE));
 
-        final List<String> collectionAttrs = List.of(ATTR_NAME, ATTR_TABLE, ATTR_INVERSE, ATTR_LAZY, ATTR_CASCADE, ATTR_ORDER_BY,
-                ATTR_FETCH // we rely on ATTR_LAZY
+        final List<String> collectionAttrs = List.of(ATTR_NAME, ATTR_TABLE, ATTR_INVERSE, ATTR_LAZY, ATTR_CASCADE,
+                ATTR_ORDER_BY, ATTR_FETCH
         );
         ATTRIBUTES.put(Tags.TAG_SET, collectionAttrs);
         ATTRIBUTES.put(Tags.TAG_LIST, collectionAttrs);
@@ -100,8 +99,5 @@ public final class Attributes {
         ATTRIBUTES.put(Tags.TAG_QUERY, List.of(ATTR_NAME));
         ATTRIBUTES.put(Tags.TAG_SQL_QUERY, List.of(ATTR_NAME));
         ATTRIBUTES.put(Tags.TAG_RETURN_SCALAR, List.of(ATTR_COLUMN, ATTR_TYPE));
-
-        // Ignored attributes
-        //ATTR_UNSAVED_VALUE
     }
 }

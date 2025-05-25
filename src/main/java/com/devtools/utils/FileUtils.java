@@ -2,11 +2,17 @@ package com.devtools.utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Optional;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.FilenameUtils;
@@ -52,7 +58,7 @@ public final class FileUtils {
      * Uses Java NIO for better error handling.
      * 
      * @param directoryPath the directory path to create
-     * @return true if directory creation failed, false if successful or already exists
+     * @return false if directory creation failed, true if successful or already exists
      */
     public static boolean createDirectories(final String directoryPath) {
         try {
@@ -61,18 +67,18 @@ public final class FileUtils {
             if (Files.exists(path)) {
                 if (!Files.isDirectory(path)) {
                     LOG.error(directoryPath + " exists but is not a directory.");
-                    return true; // Failure - exists but not a directory
+                    return false; // Failure - exists but not a directory
                 }
-                return false; // Success - already exists
+                return true; // Success - already exists
             }
             
             Files.createDirectories(path);
             LOG.info("Directory created successfully: " + directoryPath);
-            return false; // Success
+            return true; // Success
             
         } catch (final IOException e) {
             LOG.error("Failed to create directory: " + directoryPath, e);
-            return true; // Failure
+            return false; // Failure
         }
     }
 
@@ -113,16 +119,56 @@ public final class FileUtils {
 
         final Path rootPath = folder.toPath();
         final String targetFile = className + ".java";
+        final String packagePath = packageName.replace(".", File.separator);
 
-        try (final Stream<Path> pathStream = Files.walk(rootPath)) {
-            final Optional<Path> foundPath = pathStream // Goes deep into subfolders
-                    .filter(Files::isRegularFile)
-                    .filter(path -> path.getFileName().toString().equals(targetFile))
-                    .filter(path -> path.toAbsolutePath().toString().contains(packageName.replace(".", File.separator)))
-                    .findFirst();
+        try (final Stream<Path> pathStream = Files.find(rootPath, Integer.MAX_VALUE,
+                (path, attr) -> attr.isRegularFile() && path.getFileName().toString().equals(targetFile)).parallel()) {
+            return pathStream
+                    .filter(path -> path.toAbsolutePath().toString().contains(packagePath))
+                    .findFirst()
+                    .map(Path::toAbsolutePath)
+                    .map(Path::toString)
+                    .orElse(null);
+        } catch (final Exception ignored) {
+            return null;
+        }
+    }
 
-            return foundPath.map(Path::toAbsolutePath).map(Path::toString).orElse(null);
-        } catch (final Exception ignored) {}
-        return null;
+    public static Map<String, Set<String>> readPropertiesFile(final String resourceName) {
+        final Properties properties = new Properties();
+        final Map<String, Set<String>> parsedProperties = new HashMap<>();
+
+        try (final InputStream inputStream = FileUtils.class.getClassLoader().getResourceAsStream(resourceName)) {
+            if (inputStream == null) {
+                return parsedProperties; // Ignore missing file silently
+            }
+            properties.load(inputStream);
+
+            // First pass: Read properties as sets
+            properties.forEach((key, value) -> {
+                final String keyStr = key.toString();
+                final Set<String> values = Set.of(value.toString().split(","));
+                parsedProperties.put(keyStr, values);
+            });
+
+            // Second pass: Resolve placeholders
+            parsedProperties.forEach((key, valueSet) -> {
+                final Set<String> resolvedValues = new HashSet<>();
+                for (final String value : valueSet) {
+                    if (value.startsWith("${") && value.endsWith("}")) { // Placeholder detected
+                        final String referencedKey = value.substring(2, value.length() - 1); // Extract key
+                        resolvedValues.addAll(parsedProperties.getOrDefault(referencedKey, Collections.emptySet()));
+                    } else {
+                        resolvedValues.add(value);
+                    }
+                }
+                parsedProperties.put(key, resolvedValues); // Update with resolved values
+            });
+
+        } catch (final IOException e) {
+            System.err.println("Error reading properties file: " + e.getMessage());
+        }
+
+        return parsedProperties;
     }
 }

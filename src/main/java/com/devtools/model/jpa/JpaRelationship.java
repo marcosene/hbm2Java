@@ -10,7 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 
 @Getter
 @Setter
-public class JpaRelationship extends JpaAnnotation {
+public class JpaRelationship extends JpaAbstract {
 
     public enum Type {
         OneToMany, OneToOne, ManyToOne, ManyToMany
@@ -21,19 +21,25 @@ public class JpaRelationship extends JpaAnnotation {
     private String fetch;
     private String cascade;
     private boolean inverse = false;
-    private String orderColumn;
+    private String orderBy;
+    private String listIndex;
     private String access;
     private String table;
     private boolean optional = true;
     private String mappedBy;
+    private String compositeMapKey;
     private List<JpaColumn> referencedColumns = new ArrayList<>();
 
     public void setCollectionType(final String collectionType) {
-        this.collectionType = StringUtils.isNotBlank(collectionType) ? collectionType : null;
+        if (StringUtils.isNotBlank(collectionType)) {
+            this.collectionType = collectionType;
+        }
     }
 
     public void setFetch(final String fetch) {
-        this.fetch = StringUtils.isNotBlank(fetch) ? fetch : null;
+        if (StringUtils.isNotBlank(fetch)) {
+            this.fetch = fetch;
+        }
     }
 
     public void setCascade(final String cascade, final String defaultCascade) {
@@ -41,23 +47,45 @@ public class JpaRelationship extends JpaAnnotation {
                 StringUtils.isNotBlank(defaultCascade) && !"none".equals(defaultCascade) ? defaultCascade : null;
     }
 
-    public void setOrderColumn(final String orderColumn) {
-        this.orderColumn = StringUtils.isNotBlank(orderColumn) ? orderColumn : null;
+    public void setOrderBy(final String orderBy) {
+        if (StringUtils.isNotBlank(orderBy)) {
+            this.orderBy = orderBy;
+        }
+    }
+
+    public void setListIndex(final String listIndex) {
+        if (StringUtils.isNotBlank(listIndex)) {
+            this.listIndex = listIndex;
+        }
     }
 
     public void setAccess(final String access) {
-        this.access = StringUtils.isNotBlank(access) ? access : null;
+        if (StringUtils.isNotBlank(access)) {
+            this.access = access;
+        }
     }
 
     public void setTable(final String table) {
-        this.table = StringUtils.isNotBlank(table) ? table : null;
+        if (StringUtils.isNotBlank(table)) {
+            this.table = table;
+        }
     }
 
     public void setMappedBy(final String mappedBy) {
-        this.mappedBy = StringUtils.isNotBlank(mappedBy) ? mappedBy : null;
+        if (StringUtils.isNotBlank(mappedBy)) {
+            this.mappedBy = mappedBy;
+        }
+    }
+
+    public void setCompositeMapKey(final String compositeMapKey) {
+        if (StringUtils.isNotBlank(compositeMapKey)) {
+            this.compositeMapKey = compositeMapKey;
+        }
     }
 
     public void addReferencedColumn(final JpaColumn referencedColumn) {
-        referencedColumns.add(referencedColumn);
+        if (referencedColumn != null && !referencedColumns.contains(referencedColumn)) {
+            referencedColumns.add(referencedColumn);
+        }
     }
 }

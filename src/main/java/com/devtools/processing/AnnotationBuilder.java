@@ -5,18 +5,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaColumn;
-import com.devtools.model.jpa.JpaDefaults;
+import com.devtools.model.jpa.JpaCompositeColumn;
+import com.devtools.model.jpa.JpaDiscriminator;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
-import com.devtools.utils.ClassNameUtils;
 import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.JavaParserUtils;
+import com.devtools.utils.Utils;
 
 public class AnnotationBuilder {
+
+    private static final Log LOG = LogFactory.getLog(AnnotationBuilder.class);
 
     private static final String PREFIX_GENERATOR = "generator";
 
@@ -56,14 +63,14 @@ public class AnnotationBuilder {
         if (jpaEntity.isEmbeddable()) {
             jpaEntity.addAnnotation("@javax.persistence.Embeddable");
         } else {
-            if (org.apache.commons.lang3.StringUtils.isBlank(jpaEntity.getTable()) && jpaEntity.getDiscriminator() == null) {
+            if (StringUtils.isBlank(jpaEntity.getTable()) && jpaEntity.getDiscriminator() == null) {
                 jpaEntity.addAnnotation("@javax.persistence.MappedSuperclass");
             } else {
                 jpaEntity.addAnnotation("@javax.persistence.Entity");
             }
         }
 
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(jpaEntity.getTable())) {
+        if (StringUtils.isNotBlank(jpaEntity.getTable())) {
             final StringBuilder indexes = buildIndexes(jpaEntity);
             final Map<String, StringBuilder> uniqueConstraints = buildUniqueConstraints(jpaEntity);
 
@@ -102,27 +109,27 @@ public class AnnotationBuilder {
                     jpaEntity.getTable() + "\", optional = false)");
         }
 
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(jpaEntity.getCacheUsage())) {
+        if (StringUtils.isNotBlank(jpaEntity.getCacheUsage())) {
             jpaEntity.addAnnotation("@javax.persistence.Cacheable");
             switch (jpaEntity.getCacheUsage()) {
                 case "read-only":
-                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_ONLY)");
+                    jpaEntity.addAnnotation("@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_ONLY)");
                     break;
                 case "read-write":
-                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)");
+                    jpaEntity.addAnnotation("@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE)");
                     break;
                 case "nonstrict-read-write":
-                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)");
+                    jpaEntity.addAnnotation("@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)");
                     break;
                 case "transactional":
-                    jpaEntity.addAnnotation("@javax.persistence.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.TRANSACTIONAL)");
+                    jpaEntity.addAnnotation("@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.TRANSACTIONAL)");
                     break;
                 default:
                     break;
             }
         }
 
-        if (jpaEntity.isImmutable()) {
+        if (!jpaEntity.isMutable()) {
             jpaEntity.addAnnotation("@org.hibernate.annotations.Immutable");
         }
 
@@ -134,11 +141,11 @@ public class AnnotationBuilder {
             jpaEntity.addAnnotation("@org.hibernate.annotations.DynamicUpdate");
         }
 
-        if (jpaEntity.getDiscriminator() != null && org.apache.commons.lang3.StringUtils.isNotBlank(jpaEntity.getDiscriminator().getValue())) {
+        if (jpaEntity.getDiscriminator() != null && StringUtils.isNotBlank(jpaEntity.getDiscriminator().getValue())) {
             jpaEntity.addAnnotation("@javax.persistence.DiscriminatorValue(\"" + jpaEntity.getDiscriminator().getValue() + "\")");
         }
 
-        if (org.apache.commons.lang3.StringUtils.isBlank(jpaEntity.getParentClass())) {
+        if (StringUtils.isBlank(jpaEntity.getSimpleParentClass())) {
             // Handle Discriminator Column
             if (jpaEntity.getDiscriminator() != null && jpaEntity.getDiscriminator().getColumn() != null) {
                 final StringBuilder discriminatorAnnotation = new StringBuilder();
@@ -149,7 +156,7 @@ public class AnnotationBuilder {
                     discriminatorAnnotation.append(", type = ").append(
                             HibernateUtils.getDiscriminatorType(jpaEntity.getDiscriminator().getType()));
                 }
-                if (jpaEntity.getDiscriminator().getLength() != JpaDefaults.DEFAULT_DISCRIMINATOR_LENGTH) {
+                if (jpaEntity.getDiscriminator().getLength() != JpaDiscriminator.DEFAULT_DISCRIMINATOR_LENGTH) {
                     discriminatorAnnotation.append(", length = ").append(jpaEntity.getDiscriminator().getLength());
                 }
                 discriminatorAnnotation.append(")");
@@ -167,7 +174,7 @@ public class AnnotationBuilder {
 
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
             for (final JpaColumn column : relationship.getReferencedColumns()) {
-                if (org.apache.commons.lang3.StringUtils.isNotBlank(column.getIndex())) {
+                if (StringUtils.isNotBlank(column.getIndex())) {
                     for (final String index : column.getIndex().split(",")) {
                         final List<String> columnList;
                         if (indexesMap.containsKey(index)) {
@@ -183,7 +190,7 @@ public class AnnotationBuilder {
         }
 
         for (final JpaColumn column : entityDef.getColumns()) {
-            if (org.apache.commons.lang3.StringUtils.isNotBlank(column.getIndex())) {
+            if (StringUtils.isNotBlank(column.getIndex())) {
                 for (final String index : column.getIndex().split(",")) {
                     final List<String> columnList;
                     if (indexesMap.containsKey(index)) {
@@ -212,7 +219,7 @@ public class AnnotationBuilder {
             allColumns.addAll(relationship.getReferencedColumns());
         }
         for (final JpaColumn column : allColumns) {
-            if (org.apache.commons.lang3.StringUtils.isBlank(column.getUniqueConstraint())) {
+            if (StringUtils.isBlank(column.getUniqueConstraint())) {
                 continue;
             }
 
@@ -242,7 +249,7 @@ public class AnnotationBuilder {
     private void buildPrimaryKey(final JpaEntity entityDef) {
         final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
 
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorType())) {
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorType())) {
             jpaPrimaryKey.addAnnotation("@javax.persistence.Id");
 
             switch (entityDef.getPrimaryKey().getGeneratorType()) {
@@ -259,7 +266,7 @@ public class AnnotationBuilder {
                 buildForeignGenerator(entityDef);
                 break; // it will be defined in the OneToOne
             case "GENERATOR":
-                if (org.apache.commons.lang3.StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
+                if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
                     jpaPrimaryKey.addAnnotation(
                             "@javax.persistence.GeneratedValue(generator = \"" + PREFIX_GENERATOR +
                                     entityDef.getPrimaryKey().getGeneratorName() + "\")");
@@ -280,19 +287,19 @@ public class AnnotationBuilder {
         final StringBuilder generatorAnnotation = new StringBuilder();
 
         sequenceAnnotation.append("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE");
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
             final String generatorName = entityDef.getPrimaryKey().getGeneratorName();
             final String initialValue = entityDef.getPrimaryKey().getInitialValue();
             final String allocationSize = entityDef.getPrimaryKey().getAllocationSize();
 
-            sequenceAnnotation.append(", generator = \"").append(PREFIX_GENERATOR).append(entityDef.getName()).append("\"");
+            sequenceAnnotation.append(", generator = \"").append(PREFIX_GENERATOR).append(entityDef.getSimpleName()).append("\"");
             // Add the @SequenceGenerator
             sequenceAnnotation.append(")");
 
-            generatorAnnotation.append("@javax.persistence.SequenceGenerator(name = \"" + PREFIX_GENERATOR).append(entityDef.getName())
+            generatorAnnotation.append("@javax.persistence.SequenceGenerator(name = \"" + PREFIX_GENERATOR).append(entityDef.getSimpleName())
                     .append("\", sequenceName = \"").append(generatorName).append("\"")
-                    .append(org.apache.commons.lang3.StringUtils.isNotBlank(allocationSize) ? ", allocationSize = " + allocationSize : "")
-                    .append(org.apache.commons.lang3.StringUtils.isNotBlank(initialValue) ? ", initialValue = " + initialValue : "")
+                    .append(StringUtils.isNotBlank(allocationSize) ? ", allocationSize = " + allocationSize : "")
+                    .append(StringUtils.isNotBlank(initialValue) ? ", initialValue = " + initialValue : "")
                     .append(")");
         } else {
             sequenceAnnotation.append(")");
@@ -308,26 +315,26 @@ public class AnnotationBuilder {
 
         final String sequenceAnnotation =
                 "@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE"
-                        + ", generator = \"" + PREFIX_GENERATOR + entityDef.getName() + "\""
-                        + ")";
+                + ", generator = \"" + PREFIX_GENERATOR + entityDef.getSimpleName() + "\""
+                + ")";
         jpaPrimaryKey.addAnnotation(sequenceAnnotation);
 
         final StringBuilder generatorAnnotation = new StringBuilder();
         generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"" + PREFIX_GENERATOR)
-                .append(entityDef.getName())
+                .append(entityDef.getSimpleName())
                 .append("\",\n    strategy = \"org.hibernate.id.enhanced.SequenceStyleGenerator\"")
                 .append(",\n    parameters = {\n");
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
             generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"sequence_name\"");
             generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getGeneratorName());
             generatorAnnotation.append("\"),\n");
         }
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(entityDef.getPrimaryKey().getInitialValue())) {
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getInitialValue())) {
             generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"initial_value\"");
             generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getInitialValue());
             generatorAnnotation.append("\"),\n");
         }
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(entityDef.getPrimaryKey().getIncrementSize())) {
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getIncrementSize())) {
             generatorAnnotation.append("        @org.hibernate.annotations.Parameter(name = \"increment_size\"");
             generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getIncrementSize());
             generatorAnnotation.append("\"),\n");
@@ -341,27 +348,18 @@ public class AnnotationBuilder {
     private static void buildForeignGenerator(final JpaEntity entityDef) {
         final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
 
-        final String sequenceAnnotation =
-                "@javax.persistence.GeneratedValue(generator = \"" + PREFIX_GENERATOR + entityDef.getName() + "\")";
-        jpaPrimaryKey.addAnnotation(sequenceAnnotation);
-
-        final StringBuilder generatorAnnotation = new StringBuilder();
-        generatorAnnotation.append("@org.hibernate.annotations.GenericGenerator(name = \"" + PREFIX_GENERATOR)
-                .append(entityDef.getName())
-                .append("\",\n    strategy = \"foreign\"")
-                .append(",\n    parameters = ");
-        generatorAnnotation.append("@org.hibernate.annotations.Parameter(name = \"property\"");
-        generatorAnnotation.append(", value = \"").append(entityDef.getPrimaryKey().getProperty());
-        generatorAnnotation.append("\")\n)");
-        jpaPrimaryKey.addAnnotation(generatorAnnotation.toString());
+        final String generatorAnnotation = "@org.hibernate.annotations.GenericGenerator(name = \""
+                                           + PREFIX_GENERATOR + entityDef.getSimpleName() + "\""
+                                           + ",\n    strategy = \"foreign\""
+                                           + ",\n    parameters = "
+                                           + "@org.hibernate.annotations.Parameter(name = \"property\""
+                                           + ", value = \"" + jpaPrimaryKey.getProperty() + "\")\n"
+                                           + ")";
+        jpaPrimaryKey.addAnnotation(generatorAnnotation);
     }
 
     private void buildColumns(final JpaEntity entityDef) {
         for (final JpaColumn col : entityDef.getColumns()) {
-            if (col.isComposite()) {
-                continue;
-            }
-
             if (col.isEmbedded()) {
                 col.addAnnotation("@javax.persistence.Embedded");
                 continue;
@@ -393,7 +391,7 @@ public class AnnotationBuilder {
         columnAnnotation.append("@javax.persistence.Column(");
         columnAnnotation.append("name = \"").append(col.getColumnName()).append("\"");
 
-        if (col.getLength() != null && col.getLength() != JpaDefaults.DEFAULT_COLUMN_LENGTH) {
+        if (col.getLength() != null && col.getLength() != JpaColumn.DEFAULT_COLUMN_LENGTH) {
             columnAnnotation.append(", length = ").append(col.getLength());
         }
         if (!col.isNullable()) {
@@ -405,7 +403,7 @@ public class AnnotationBuilder {
         if (col.isUnique()) {
             columnAnnotation.append(", unique = true");
         }
-        if (org.apache.commons.lang3.StringUtils.isNotBlank(col.getColumnDefinition())) {
+        if (StringUtils.isNotBlank(col.getColumnDefinition())) {
             columnAnnotation.append(", columnDefinition = \"").append(col.getColumnDefinition()).append("\"");
         }
         if (col.getPrecision() != null && col.getPrecision() != 0) {
@@ -420,53 +418,34 @@ public class AnnotationBuilder {
     }
 
     private void buildAttributeOverrides(final JpaEntity entityDef) {
-        final Map<String, List<JpaColumn>> attributeOverrides = new HashMap<>();
-        // First group all columns that should be treated as AttributeOverrides
-        for (final JpaColumn col : entityDef.getColumns()) {
-            if (!col.isComposite()) {
-                continue;
-            }
-            final List<JpaColumn> jpaColumns;
-            if (attributeOverrides.containsKey(col.getName())) {
-                jpaColumns = attributeOverrides.get(col.getName());
-            } else {
-                jpaColumns = new ArrayList<>();
-                attributeOverrides.put(col.getName(), jpaColumns);
-            }
-            jpaColumns.add(col);
-        }
+        for (final JpaCompositeColumn compositeColumn : entityDef.getCompositeColumns()) {
+            final StringBuilder compositeAnnotation = new StringBuilder();
+            compositeAnnotation.append("@javax.persistence.AttributeOverrides({\n");
 
-        for (final Map.Entry<String, List<JpaColumn>> entry : attributeOverrides.entrySet()) {
-            final StringBuilder columnAnnotation = new StringBuilder();
-            columnAnnotation.append("@javax.persistence.AttributeOverrides({\n");
-
-            for (final JpaColumn column : entry.getValue()) {
-                columnAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
-                columnAnnotation.append(com.devtools.utils.StringUtils.toCamelCase(column.getColumnName()));
-                columnAnnotation.append("\", column = ");
-                columnAnnotation.append(buildColumn(column));
-                columnAnnotation.append("),\n");
+            for (final JpaColumn column : compositeColumn.getColumns()) {
+                compositeAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
+                compositeAnnotation.append(Utils.toCamelCase(column.getColumnName()));
+                compositeAnnotation.append("\", column = ");
+                compositeAnnotation.append(buildColumn(column));
+                compositeAnnotation.append("),\n");
             }
-            columnAnnotation.append("    })");
+            compositeAnnotation.append("    })");
 
-            for (final JpaColumn column : entry.getValue()) {
-                if (!column.isOptimisticLock()) {
-                    column.addAnnotation("@org.hibernate.annotations.OptimisticLock(excluded = true)");
-                }
-                column.addAnnotation(columnAnnotation.toString());
+            if (!compositeColumn.isOptimisticLock()) {
+                compositeColumn.addAnnotation("@org.hibernate.annotations.OptimisticLock(excluded = true)");
             }
+            compositeColumn.addAnnotation(compositeAnnotation.toString());
         }
     }
 
     private void buildRelationships(final JpaEntity entityDef) {
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
-            if (Tags.TAG_MAP.equals(relationship.getCollectionType()) && relationship.getReferencedColumns() != null) {
-                if (relationship.getReferencedColumns().size() > 1) {
+            if (Tags.TAG_MAP.equals(relationship.getCollectionType()) && !relationship.getReferencedColumns().isEmpty()) {
+                if (StringUtils.isNotBlank(relationship.getCompositeMapKey())) {
                     relationship.addAnnotation("@javax.persistence.MapKeyClass(" +
-                            relationship.getReferencedColumns().stream().filter(JpaColumn::isComposite)
-                                    .findFirst().get().getType() + ".class)");
+                                               relationship.getCompositeMapKey() + ".class)");
                 } else {
-                    relationship.addAnnotation("@javax.persistence.MapKeyColumn(name = \"" +
+                    relationship.addAnnotation("@javax.persistence.MapKey(name = \"" +
                             relationship.getReferencedColumns().get(0).getName() + "\")");
                 }
             }
@@ -492,7 +471,7 @@ public class AnnotationBuilder {
                         (!referencedColumn.isUpdatable() ? ", updatable = false" : "") +
                         (!referencedColumn.isNullable() ? ", nullable = false" : "") +
                         (referencedColumn.isUnique() ? ", unique = true" : "") +
-                        (org.apache.commons.lang3.StringUtils.isNotBlank(referencedColumn.getForeignKey()) ?
+                        (StringUtils.isNotBlank(referencedColumn.getForeignKey()) ?
                                 ", foreignKey = @javax.persistence.ForeignKey(name = \"" +
                                         referencedColumn.getForeignKey() + "\")" : "") +
                         ")";
@@ -503,7 +482,7 @@ public class AnnotationBuilder {
             // Generate the appropriate relationship annotation
             switch (relationship.getRelationshipType()) {
                 case ManyToOne:
-                    if (org.apache.commons.lang3.StringUtils.isNotBlank(relationship.getAccess())) {
+                    if (StringUtils.isNotBlank(relationship.getAccess())) {
                         relationship.addAnnotation("@javax.persistence.Access(javax.persistence.AccessType." +
                                 relationship.getAccess().toUpperCase() + ")");
                     }
@@ -534,9 +513,15 @@ public class AnnotationBuilder {
                     }
                     if (relationship.isInverse()) {
                         String mappedBy = relationship.getMappedBy();
-                        if (org.apache.commons.lang3.StringUtils.isBlank(mappedBy)) {
-                            mappedBy = JavaParserUtils.searchVariableNameByType(outputFolder,
-                                    ClassNameUtils.getSimpleClassName(relationship.getReturnType()), entityDef.getName());
+                        if (StringUtils.isBlank(mappedBy)) {
+                            mappedBy = JavaParserUtils.findVariableNameByType(outputFolder,
+                                    relationship.getReturnType(), entityDef.getSimpleName());
+                            if (StringUtils.isBlank(mappedBy)) {
+                                mappedBy = Utils.toCamelCase(entityDef.getSimpleName());
+                                LOG.warn(String.format(
+                                        "Please check the correct name of (mappedBy = \"%s\") in the field '%s' of %s",
+                                        mappedBy, relationship.getName(), entityDef.getSimpleName()));
+                            }
                         }
                         relationshipAnnotation.append("mappedBy = \"").append(mappedBy).append("\", ");
                     }
@@ -553,6 +538,8 @@ public class AnnotationBuilder {
                             "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType()) &&
                             relationship.getName().equals(entityDef.getPrimaryKey().getProperty())) {
                         relationship.addAnnotation("@javax.persistence.MapsId");
+                        relationship.addAnnotation("@javax.persistence.JoinColumn(name = \"" +
+                                                   entityDef.getPrimaryKey().getColumnName() + "\")");
                     }
                     relationshipAnnotation.append("@javax.persistence.OneToOne(");
                     if ("LAZY".equals(fetchType)) {
@@ -561,7 +548,7 @@ public class AnnotationBuilder {
                     if (!relationship.isOptional()) {
                         relationshipAnnotation.append("optional = false, ");
                     }
-                    if (org.apache.commons.lang3.StringUtils.isNotBlank(relationship.getMappedBy())) {
+                    if (StringUtils.isNotBlank(relationship.getMappedBy())) {
                         relationshipAnnotation.append("mappedBy = \"").append(relationship.getMappedBy()).append("\", ");
                     }
                     if (!cascade.isEmpty()) {
@@ -581,7 +568,7 @@ public class AnnotationBuilder {
 
                 case ManyToMany:
                     relationshipAnnotation.append("@javax.persistence.ManyToMany(fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
-                    relationshipAnnotation.append(org.apache.commons.lang3.StringUtils.isNotBlank(cascade) ? cascade : "");
+                    relationshipAnnotation.append(StringUtils.isNotBlank(cascade) ? cascade : "");
                     if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
                         relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
                         relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 1); // remove last space
@@ -603,7 +590,7 @@ public class AnnotationBuilder {
                                             .append("\"");
                                     joinAnnotation.append(!column.isUpdatable() ? ", updatable = false" : "")
                                             .append(!column.isNullable() ? ", nullable = false" : "")
-                                            .append(org.apache.commons.lang3.StringUtils.isNotBlank(column.getForeignKey()) ?
+                                            .append(StringUtils.isNotBlank(column.getForeignKey()) ?
                                                     ", foreignKey = @javax.persistence.ForeignKey(name = \"" + column.getForeignKey()
                                                             + "\")" : "");
                                     joinAnnotation.append(")\n");
@@ -621,7 +608,7 @@ public class AnnotationBuilder {
                                             .append("\"");
                                     joinAnnotation.append(!column.isUpdatable() ? ", updatable = false" : "")
                                             .append(!column.isNullable() ? ", nullable = false" : "")
-                                            .append(org.apache.commons.lang3.StringUtils.isNotBlank(column.getForeignKey()) ?
+                                            .append(StringUtils.isNotBlank(column.getForeignKey()) ?
                                                     ", foreignKey = @javax.persistence.ForeignKey(name = \"" + column.getForeignKey()
                                                             + "\")" : "");
                                     joinAnnotation.append(")\n");
@@ -635,22 +622,27 @@ public class AnnotationBuilder {
                     break;
             }
 
-            if (org.apache.commons.lang3.StringUtils.isNotBlank(relationship.getOrderColumn())) {
-                String orderColumn = relationship.getOrderColumn();
+            if (StringUtils.isNotBlank(relationship.getOrderBy())) {
+                String orderBy = relationship.getOrderBy();
+                // Try to convert DB column name to field name
                 for (final JpaColumn refColumn : relationship.getReferencedColumns()) {
-                    if (refColumn.getColumnName().equals(orderColumn)) {
-                        orderColumn = refColumn.getName();
+                    if (refColumn.getColumnName().equals(orderBy)) {
+                        orderBy = refColumn.getName();
                         break;
                     }
                 }
-                relationship.addAnnotation("@javax.persistence.OrderBy(\"" + orderColumn + "\")");
+                relationship.addAnnotation("@javax.persistence.OrderBy(\"" + orderBy + "\")");
+            }
+
+            if (StringUtils.isNotBlank(relationship.getListIndex())) {
+                relationship.addAnnotation("@javax.persistence.OrderColumn(name = \"" + relationship.getListIndex() + "\")");
             }
         }
     }
 
     private void buildEmbedded(final JpaEntity entityDef) {
-        for (final JpaEntity embeddedField : entityDef.getEmbeddedFields()) {
-            build(embeddedField);
+        for (final JpaEntity embeddedEntity : entityDef.getEmbeddedEntities()) {
+            build(embeddedEntity);
         }
     }
 

@@ -10,8 +10,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import com.devtools.model.jpa.JpaBase;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaCompositeColumn;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
 import com.devtools.utils.ClassNameUtils;
@@ -78,7 +78,7 @@ public class ConversionProcessor {
     }
 
     private void validateAndCreateOutputDirectory(final String outputFolder) {
-        if (FileUtils.createDirectories(outputFolder)) {
+        if (!FileUtils.createDirectories(outputFolder)) {
             throw new RuntimeException("Failed to create or validate output folder: " + outputFolder);
         }
     }
@@ -116,15 +116,15 @@ public class ConversionProcessor {
             LOG.info("Parsing HBM file: " + hbmFilePath);
 
             try {
-                final JpaBase jpaBase = hbmParser.parse(hbmFilePath);
+                final List<JpaEntity> entities = hbmParser.parse(hbmFilePath);
 
-                if (jpaBase == null) {
+                if (entities == null) {
                     LOG.error("Failed to parse HBM file: " + hbmFilePath);
                     continue;
                 }
 
-                final int entitiesCount = jpaBase.getEntities().size();
-                jpaBase.getEntities().forEach(entity -> jpaEntityMap.put(entity.getName(), entity));
+                final int entitiesCount = entities.size();
+                entities.forEach(entity -> jpaEntityMap.put(entity.getSimpleName(), entity));
                 LOG.debug("Extracted " + entitiesCount + " entities from: " + hbmFile.getName());
                 
             } catch (final Exception e) {
@@ -145,86 +145,28 @@ public class ConversionProcessor {
         configureForeignKeyRelationships(jpaEntityMap);
         
         // Process embeddable settings for composite columns
-        configureEmbeddableSettings(jpaEntityMap);
-    }
-
-    private void generateOrAnnotateEntities(final Map<String, JpaEntity> jpaEntityMap, 
-                                          final String outputFolder, final boolean annotateExisting) {
-        
-        final AnnotationBuilder annotationBuilder = new AnnotationBuilder(outputFolder);
-        final AnnotationApplier annotationApplier = new AnnotationApplier();
-        final EntityGenerator entityGenerator = new EntityGenerator();
-        
-        int successCount = 0;
-        int errorCount = 0;
-
-        for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
-            final String entityName = jpaEntity.getName();
-            LOG.info("Processing entity: " + entityName);
-            
-            try {
-                annotationBuilder.build(jpaEntity);
-
-                if (annotateExisting) {
-                    annotationApplier.replace(jpaEntity, outputFolder);
-                    LOG.debug("Successfully annotated existing entity: " + entityName);
-                } else {
-                    entityGenerator.generate(jpaEntity, outputFolder);
-                    LOG.debug("Successfully generated new entity: " + entityName);
-                }
-                
-                successCount++;
-                
-            } catch (final Exception e) {
-                LOG.error("Error processing entity '" + entityName + "' (class: " + 
-                    jpaEntity.getFullParentClass() + ")", e);
-                errorCount++;
-            }
-        }
-
-        LOG.info("Entity processing completed. Success: " + successCount + ", Errors: " + errorCount);
+        configureEmbeddable(jpaEntityMap);
     }
 
     private void configureInheritanceSettings(final Map<String, JpaEntity> jpaEntityMap) {
         for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
-            final String parentClassName = jpaEntity.getParentClass();
+            final String parentClassName = jpaEntity.getSimpleParentClass();
             
             if (parentClassName == null) {
                 continue;
             }
-            
-            setInheritanceOnParentClass(jpaEntityMap, jpaEntity);
-        }
-    }
 
-    private void configureForeignKeyRelationships(final Map<String, JpaEntity> jpaEntityMap) {
-        for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
-            setForeignKeyInverseRelationship(jpaEntityMap, jpaEntity);
-        }
-    }
+            final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getSimpleParentClass());
 
-    private void configureEmbeddableSettings(final Map<String, JpaEntity> jpaEntityMap) {
-        // Create a copy of the values to avoid ConcurrentModificationException
-        for (final JpaEntity jpaEntity : new HashSet<>(jpaEntityMap.values())) {
-            processCompositeColumns(jpaEntityMap, jpaEntity.getColumns());
-            
-            for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
-                processCompositeColumns(jpaEntityMap, jpaRelationship.getReferencedColumns());
+            if (parentEntity == null || parentEntity.getDiscriminator() == null ||
+                parentEntity.getDiscriminator().getColumn() == null) {
+                return;
             }
-        }
-    }
 
-    private void setInheritanceOnParentClass(final Map<String, JpaEntity> jpaEntityMap, final JpaEntity jpaEntity) {
-        final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getParentClass());
-        
-        if (parentEntity == null || parentEntity.getDiscriminator() == null || 
-            parentEntity.getDiscriminator().getColumn() == null) {
-            return;
-        }
-        
-        final String inheritanceStrategy = determineInheritanceStrategy(jpaEntity, parentEntity);
-        if (inheritanceStrategy != null) {
-            parentEntity.setInheritance(inheritanceStrategy);
+            final String inheritanceStrategy = determineInheritanceStrategy(jpaEntity, parentEntity);
+            if (inheritanceStrategy != null) {
+                parentEntity.setInheritance(inheritanceStrategy);
+            }
         }
     }
 
@@ -232,26 +174,28 @@ public class ConversionProcessor {
         if (childEntity.isSecondTable()) {
             return "JOINED";
         }
-        
+
         if (StringUtils.isNotBlank(childEntity.getTable())) {
             return "TABLE_PER_CLASS";
         }
-        
+
         // Default to SINGLE_TABLE if no inheritance strategy is already set
         return parentEntity.getInheritance() == null ? "SINGLE_TABLE" : null;
     }
 
-    private void setForeignKeyInverseRelationship(final Map<String, JpaEntity> jpaEntityMap, final JpaEntity jpaEntity) {
-        for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
-            if (!isOneToManyWithForeignKey(jpaRelationship)) {
-                continue;
-            }
-            
-            final String foreignKey = jpaRelationship.getReferencedColumns().get(0).getForeignKey();
-            final JpaEntity inverseEntity = jpaEntityMap.get(ClassNameUtils.getSimpleClassName(jpaRelationship.getReturnType()));
-            
-            if (inverseEntity != null) {
-                updateInverseRelationshipForeignKey(inverseEntity, jpaEntity, foreignKey);
+    private void configureForeignKeyRelationships(final Map<String, JpaEntity> jpaEntityMap) {
+        for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
+            for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
+                if (!isOneToManyWithForeignKey(jpaRelationship)) {
+                    continue;
+                }
+
+                final String foreignKey = jpaRelationship.getReferencedColumns().get(0).getForeignKey();
+                final JpaEntity inverseEntity = jpaEntityMap.get(ClassNameUtils.getSimpleClassName(jpaRelationship.getReturnType()));
+
+                if (inverseEntity != null) {
+                    updateInverseRelationshipForeignKey(inverseEntity, jpaEntity, foreignKey);
+                }
             }
         }
     }
@@ -262,12 +206,12 @@ public class ConversionProcessor {
                StringUtils.isNotBlank(jpaRelationship.getReferencedColumns().get(0).getForeignKey());
     }
 
-    private void updateInverseRelationshipForeignKey(final JpaEntity inverseEntity, final JpaEntity jpaEntity, 
-                                                  final String foreignKey) {
+    private void updateInverseRelationshipForeignKey(final JpaEntity inverseEntity, final JpaEntity jpaEntity,
+            final String foreignKey) {
         for (final JpaRelationship inverseRelationship : inverseEntity.getRelationships()) {
             if (JpaRelationship.Type.ManyToOne.equals(inverseRelationship.getRelationshipType()) &&
                 inverseRelationship.getReturnType().equals(jpaEntity.getType())) {
-                
+
                 if (!inverseRelationship.getReferencedColumns().isEmpty()) {
                     inverseRelationship.getReferencedColumns().get(0).setForeignKey(foreignKey);
                     LOG.debug("Updated foreign key for inverse relationship: " + foreignKey);
@@ -277,32 +221,87 @@ public class ConversionProcessor {
         }
     }
 
-    private void processCompositeColumns(final Map<String, JpaEntity> jpaEntityMap, 
-                                      final List<JpaColumn> columns) {
-        if (columns == null) {
-            return;
-        }
-        
-        for (final JpaColumn jpaColumn : columns) {
-            if (jpaColumn.isComposite()) {
-                createOrGetEmbeddableEntity(jpaEntityMap, jpaColumn.getReturnType());
+    private void configureEmbeddable(final Map<String, JpaEntity> jpaEntityMap) {
+        // Create a copy of the values to avoid ConcurrentModificationException
+        for (final JpaEntity jpaEntity : new HashSet<>(jpaEntityMap.values())) {
+            // Set embeddable to composite-columns class
+            for (final JpaCompositeColumn compositeColumn : jpaEntity.getCompositeColumns()) {
+                final String embeddableClassName = ClassNameUtils.getSimpleClassName(compositeColumn.getReturnType());
+                processCompositeColumns(jpaEntityMap, embeddableClassName, compositeColumn.getColumns(), false);
+            }
+
+            // Set embeddable to composite-map-key class and annotate their fields
+            for (final JpaRelationship jpaRelationship : jpaEntity.getRelationships()) {
+                if (StringUtils.isNotBlank(jpaRelationship.getCompositeMapKey()) &&
+                    jpaRelationship.getReferencedColumns().size() > 1) {
+                    processCompositeColumns(jpaEntityMap, jpaRelationship.getCompositeMapKey(),
+                            jpaRelationship.getReferencedColumns(), true);
+                }
+            }
+
+            // Add annotations to the embeddable classes
+            for (final JpaEntity embeddable : jpaEntity.getEmbeddedEntities()) {
+                jpaEntityMap.put(embeddable.getSimpleName(), embeddable);
             }
         }
     }
 
-    private void createOrGetEmbeddableEntity(final Map<String, JpaEntity> jpaEntityMap, 
-                                          final String columnType) {
-        final String embeddableClassName = ClassNameUtils.getSimpleClassName(columnType);
-        
+    private void processCompositeColumns(final Map<String, JpaEntity> jpaEntityMap, final String embeddableClassName,
+            final List<JpaColumn> columns, final boolean annotateColumns) {
+
         if (jpaEntityMap.containsKey(embeddableClassName)) {
-            return; // Already exists
+            return;
         }
-        
+
         final JpaEntity embeddableEntity = new JpaEntity();
         embeddableEntity.setName(embeddableClassName);
         embeddableEntity.setEmbeddable(true);
+
+        if (annotateColumns) {
+            columns.stream().filter(JpaColumn::isEmbedded).forEach(column -> {
+                column.setEmbedded(false);
+                embeddableEntity.addColumn(column);
+            });
+        }
+
         jpaEntityMap.put(embeddableClassName, embeddableEntity);
-        
         LOG.debug("Created embeddable entity: " + embeddableClassName);
+    }
+
+    private void generateOrAnnotateEntities(final Map<String, JpaEntity> jpaEntityMap,
+            final String outputFolder, final boolean annotateExisting) {
+
+        final AnnotationBuilder annotationBuilder = new AnnotationBuilder(outputFolder);
+        final AnnotationApplier annotationApplier = new AnnotationApplier(outputFolder);
+        final EntityGenerator entityGenerator = new EntityGenerator();
+
+        int successCount = 0;
+        int errorCount = 0;
+
+        for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
+            final String entityName = jpaEntity.getSimpleName();
+            LOG.info("Processing entity: " + entityName);
+
+            try {
+                annotationBuilder.build(jpaEntity);
+
+                if (annotateExisting) {
+                    annotationApplier.applyAnnotations(jpaEntity);
+                    LOG.debug("Successfully annotated existing entity: " + entityName);
+                } else {
+                    entityGenerator.generate(jpaEntity, outputFolder);
+                    LOG.debug("Successfully generated new entity: " + entityName);
+                }
+
+                successCount++;
+
+            } catch (final Exception e) {
+                LOG.error("Error processing entity '" + entityName + "' (class: " +
+                          jpaEntity.getParentClass() + ")", e);
+                errorCount++;
+            }
+        }
+
+        LOG.info("Entity processing completed. Success: " + successCount + ", Errors: " + errorCount);
     }
 }

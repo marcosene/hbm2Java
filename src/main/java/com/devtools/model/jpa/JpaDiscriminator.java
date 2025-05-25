@@ -9,10 +9,12 @@ import org.apache.commons.lang3.StringUtils;
 @Setter
 public class JpaDiscriminator {
 
+    public static final int DEFAULT_DISCRIMINATOR_LENGTH = 31;
+
     private String type;
     private String column;
     private String value;
-    private int length = JpaDefaults.DEFAULT_DISCRIMINATOR_LENGTH;
+    private int length = DEFAULT_DISCRIMINATOR_LENGTH;
 
     public void setType(final String type) {
         if (StringUtils.isNotBlank(type)) {

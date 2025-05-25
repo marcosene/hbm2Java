@@ -99,5 +99,4 @@ public class Hbm2Java {
         System.err.println("  " + ANNOTATE_EXISTING_FLAG + ": Optional flag to annotate existing Java files instead of generating new ones");
     }
 
-
 }

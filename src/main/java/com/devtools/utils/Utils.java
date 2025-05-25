@@ -5,13 +5,15 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * Utility class for string manipulation operations.
  * Complements Apache Commons Lang3 StringUtils with project-specific functionality.
  */
-public final class StringUtils {
+public final class Utils {
 
-    private StringUtils() {
+    private Utils() {
         // Utility class - prevent instantiation
     }
 
@@ -23,7 +25,7 @@ public final class StringUtils {
      * @return the camelCase version of the input string
      */
     public static String toCamelCase(final String input) {
-        if (org.apache.commons.lang3.StringUtils.isBlank(input)) {
+        if (StringUtils.isBlank(input)) {
             return "";
         }
 
@@ -150,5 +152,13 @@ public final class StringUtils {
         }
         matcher.appendTail(sb);
         return sb.toString();
+    }
+
+    public static String capitalize(final String str) {
+        return str.isEmpty() ? str : Character.toUpperCase(str.charAt(0)) + str.substring(1);
+    }
+
+    public static String uncapitalize(final String str) {
+        return str.isEmpty() ? str : Character.toLowerCase(str.charAt(0)) + str.substring(1);
     }
 }
