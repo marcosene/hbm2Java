@@ -27,6 +27,18 @@
 - **File Validation**: Input validation and directory structure verification
 - **Package Structure Preservation**: Maintains existing package structures when annotating files
 
+### Ignoring Specific Fields
+The tool allows ignoring specific fields during JPA annotation by creating and configuring an `ignore.properties` file in the `src/main/resources` directory.
+
+The format for entries in `ignore.properties` is: `simpleClassName={field1,field2,...}`.
+
+For example:
+`MyClass=fieldToIgnore,anotherField`
+
+Placeholders can be used to reference other lists of fields. For example:
+- `InsertTraceable=insertedAt,insertedBy`
+- `UpdateTraceable=updatedAt,updatedBy,modCount,${InsertTraceable}` (where `${InsertTraceable}` will be replaced by `insertedAt,insertedBy`)
+
 ## Prerequisites
 
 - **Java Development Kit (JDK) 17 or higher**
@@ -91,12 +103,6 @@ java -jar target/hbm2java-1.0-SNAPSHOT.jar ./hibernate-mappings ./generated-enti
 ```bash
 # Add JPA annotations to existing entity files
 java -jar target/hbm2java-1.0-SNAPSHOT.jar ./hibernate-mappings ./src/main/java --annotateExisting
-```
-
-#### Complex Project Structure
-```bash
-# Process HBM files from multiple sources
-java -jar target/hbm2java-1.0-SNAPSHOT.jar /project/resources/hibernate /project/src/main/java/entities
 ```
 
 ## Architecture
