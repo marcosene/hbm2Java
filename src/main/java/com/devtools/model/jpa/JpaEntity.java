@@ -12,7 +12,7 @@ import com.devtools.utils.ClassNameUtils;
 
 @Getter
 @Setter
-public class JpaEntity extends JpaAnnotation {
+public class JpaEntity extends JpaAbstract {
 
     private String defaultCascade;
     private String table;
@@ -22,7 +22,7 @@ public class JpaEntity extends JpaAnnotation {
     private boolean dynamicInsert = false;
     private boolean dynamicUpdate = false;
     private boolean abstractClass = false;
-    private boolean immutable = false;
+    private boolean mutable = true;
     private boolean embeddable = false;
     private boolean secondTable = false;
     private JpaColumn secondTableKeys;
@@ -30,27 +30,30 @@ public class JpaEntity extends JpaAnnotation {
 
     private JpaPrimaryKey primaryKey;
     private final List<JpaColumn> columns = new ArrayList<>();
+    private final List<JpaCompositeColumn> compositeColumns = new ArrayList<>();
     private final List<JpaRelationship> relationships = new ArrayList<>();
-    private final List<JpaEntity> embeddedFields = new ArrayList<>();
+    private final List<JpaEntity> embeddedEntities = new ArrayList<>();
     private final List<JpaNamedQuery> namedQueries = new ArrayList<>();
+
+    public String getName() {
+        return name != null ? name : type;
+    }
+
+    public String getType() {
+        return type != null ? type : name;
+    }
+
+    public String getPackageName() {
+        return ClassNameUtils.getPackageName(getType());
+    }
+
+    public String getSimpleName() {
+        return ClassNameUtils.getSimpleClassName(getType());
+    }
 
     public void setDefaultCascade(final String defaultCascade) {
         if (StringUtils.isNotBlank(defaultCascade)) {
             this.defaultCascade = defaultCascade;
-        }
-    }
-
-    public String getType() {
-        return name;
-    }
-
-    public String getName() {
-        return ClassNameUtils.getSimpleClassName(name);
-    }
-
-    public void setName(final String className) {
-        if (StringUtils.isNotBlank(className)) {
-            this.name = className;
         }
     }
 
@@ -60,11 +63,7 @@ public class JpaEntity extends JpaAnnotation {
         }
     }
 
-    public String getFullParentClass() {
-        return parentClass;
-    }
-
-    public String getParentClass() {
+    public String getSimpleParentClass() {
         return ClassNameUtils.getSimpleClassName(parentClass);
     }
 
@@ -74,8 +73,8 @@ public class JpaEntity extends JpaAnnotation {
         }
     }
 
-    public JpaDiscriminator getDiscriminator(final boolean create) {
-        if (discriminator == null && create) {
+    public JpaDiscriminator getDiscriminator() {
+        if (discriminator == null) {
             discriminator = new JpaDiscriminator();
         }
         return discriminator;
@@ -85,16 +84,8 @@ public class JpaEntity extends JpaAnnotation {
         this.dynamicInsert = StringUtils.isNotBlank(dynamicInsert) && Boolean.parseBoolean(dynamicInsert);
     }
 
-    public boolean isDynamicInsert() {
-        return dynamicInsert;
-    }
-
     public void setDynamicUpdate(final String dynamicUpdate) {
         this.dynamicUpdate = StringUtils.isNotBlank(dynamicUpdate) && Boolean.parseBoolean(dynamicUpdate);
-    }
-
-    public boolean isDynamicUpdate() {
-        return dynamicUpdate;
     }
 
     public void setAbstractClass(final String abstractClass) {
@@ -103,27 +94,43 @@ public class JpaEntity extends JpaAnnotation {
 
     public void setMutable(final String mutable) {
         if (StringUtils.isNotBlank(mutable)) {
-            this.immutable = !Boolean.parseBoolean(mutable);
+            this.mutable = Boolean.parseBoolean(mutable);
+        }
+    }
+
+    public void setCacheUsage(final String cacheUsage) {
+        if (StringUtils.isNotBlank(cacheUsage)) {
+            this.cacheUsage = cacheUsage;
         }
     }
 
     public void addColumn(final JpaColumn column) {
-        columns.add(column);
+        if (column != null && !columns.contains(column)) {
+            columns.add(column);
+        }
+    }
+
+    public void addCompositeColumn(final JpaCompositeColumn compositeColumn) {
+        if (compositeColumn != null && !compositeColumns.contains(compositeColumn)) {
+            compositeColumns.add(compositeColumn);
+        }
     }
 
     public void addRelationship(final JpaRelationship relationship) {
-        relationships.add(relationship);
+        if (relationship != null && !relationships.contains(relationship)) {
+            relationships.add(relationship);
+        }
     }
 
-    public void addEmbeddedField(final JpaEntity embeddedField) {
-        embeddedFields.add(embeddedField);
+    public void addEmbeddedEntity(final JpaEntity embeddedEntity) {
+        if (embeddedEntity != null && !embeddedEntities.contains(embeddedEntity)) {
+            embeddedEntities.add(embeddedEntity);
+        }
     }
 
     public void addNamedQuery(final JpaNamedQuery namedQuery) {
-        namedQueries.add(namedQuery);
-    }
-
-    public String getPackageName() {
-        return ClassNameUtils.getPackageName(name);
+        if (namedQuery != null && !namedQueries.contains(namedQuery)) {
+            namedQueries.add(namedQuery);
+        }
     }
 }

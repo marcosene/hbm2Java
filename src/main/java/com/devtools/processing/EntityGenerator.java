@@ -3,9 +3,7 @@ package com.devtools.processing;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +13,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.devtools.model.hbm.Tags;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaCompositeColumn;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaRelationship;
 import com.devtools.utils.ClassNameUtils;
@@ -53,7 +52,7 @@ public class EntityGenerator {
         // Close the class definition
         entityCode.append("}\n");
 
-        FileUtils.writeFile(outputFolder + File.separator + entityDef.getName() + ".new.java", entityCode.toString());
+        FileUtils.writeFile(outputFolder + File.separator + entityDef.getSimpleName() + ".new.java", entityCode.toString());
     }
 
     private void generateHeaders(final JpaEntity entityDef, final StringBuilder entityCode) {
@@ -69,8 +68,8 @@ public class EntityGenerator {
         entityCode.append("import java.util.*;\n");
 
         final Set<String> importClasses = new LinkedHashSet<>();
-        if (StringUtils.isNotBlank(entityDef.getParentClass())) {
-            importClasses.add(entityDef.getFullParentClass());
+        if (StringUtils.isNotBlank(entityDef.getSimpleParentClass())) {
+            importClasses.add(entityDef.getParentClass());
         }
 
         for (final JpaRelationship relationship : entityDef.getRelationships()) {
@@ -116,10 +115,10 @@ public class EntityGenerator {
         if (entityDef.isAbstractClass()) {
             entityCode.append("abstract ");
         }
-        entityCode.append("class ").append(entityDef.getName());
+        entityCode.append("class ").append(entityDef.getSimpleName());
 
-        if (StringUtils.isNotBlank(entityDef.getParentClass()) && !entityDef.isEmbeddable()) {
-            entityCode.append(" extends ").append(entityDef.getParentClass());
+        if (StringUtils.isNotBlank(entityDef.getSimpleParentClass()) && !entityDef.isEmbeddable()) {
+            entityCode.append(" extends ").append(entityDef.getSimpleParentClass());
         }
         entityCode.append(" {\n\n");
     }
@@ -135,9 +134,6 @@ public class EntityGenerator {
 
     private void generateColumns(final JpaEntity entityDef, final StringBuilder entityCode) {
         for (final JpaColumn col : entityDef.getColumns()) {
-            if (col.isComposite()) {
-                continue;
-            }
             for (final String annotation : col.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
@@ -147,34 +143,17 @@ public class EntityGenerator {
     }
 
     private void generateAttributeOverrides(final JpaEntity entityDef, final StringBuilder entityCode) {
-        final Map<String, List<JpaColumn>> attributeOverrides = new HashMap<>();
-        // First group all columns that should be treated as AttributeOverrides
-        for (final JpaColumn col : entityDef.getColumns()) {
-            if (!col.isComposite()) {
-                continue;
-            }
-            final List<JpaColumn> jpaColumns;
-            if (attributeOverrides.containsKey(col.getName())) {
-                jpaColumns = attributeOverrides.get(col.getName());
-            } else {
-                jpaColumns = new ArrayList<>();
-                attributeOverrides.put(col.getName(), jpaColumns);
-            }
-            jpaColumns.add(col);
-        }
 
-        for (final Map.Entry<String, List<JpaColumn>> entry : attributeOverrides.entrySet()) {
+        for (final JpaCompositeColumn compositeColumn : entityDef.getCompositeColumns()) {
             entityCode.append("    // TODO check correct name for each field in the class ");
-            entityCode.append(entry.getValue().get(0).getType()).append("\n");
+            entityCode.append(compositeColumn.getType()).append("\n");
             entityCode.append("    // TODO probably need to replace UserType class by the @Embeddable class (that must be manually adapted)\n");
 
-            final JpaColumn varColumn = entry.getValue().get(entry.getValue().size() - 1);
-            assert varColumn != null;
-            for (final String annotation : varColumn.getAnnotations()) {
+            for (final String annotation : compositeColumn.getAnnotations()) {
                 entityCode.append("    ").append(annotation).append("\n");
             }
-            entityCode.append("    private ").append(varColumn.getReturnType())
-                    .append(" ").append(varColumn.getName()).append(";\n\n");
+            entityCode.append("    private ").append(compositeColumn.getReturnType())
+                    .append(" ").append(compositeColumn.getName()).append(";\n\n");
         }
     }
 
@@ -218,8 +197,8 @@ public class EntityGenerator {
 
     private void generateEmbedded(final JpaEntity entityDef, final String outputFolder)
             throws IOException {
-        for (final JpaEntity embeddedField : entityDef.getEmbeddedFields()) {
-            generate(embeddedField, outputFolder);
+        for (final JpaEntity embeddedEntity : entityDef.getEmbeddedEntities()) {
+            generate(embeddedEntity, outputFolder);
         }
     }
 

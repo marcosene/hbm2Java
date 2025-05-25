@@ -20,8 +20,8 @@ import org.xml.sax.SAXException;
 
 import com.devtools.model.hbm.Attributes;
 import com.devtools.model.hbm.Tags;
-import com.devtools.model.jpa.JpaBase;
 import com.devtools.model.jpa.JpaColumn;
+import com.devtools.model.jpa.JpaCompositeColumn;
 import com.devtools.model.jpa.JpaDiscriminator;
 import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
@@ -35,27 +35,27 @@ public class HbmParser {
 
     private static final Log LOG = LogFactory.getLog(HbmParser.class);
 
-    public JpaBase parse(final String filePath) throws Exception {
-        final JpaBase jpaBase = new JpaBase();
+    public List<JpaEntity> parse(final String filePath) throws Exception {
+        final List<JpaEntity> entities = new ArrayList<>();
         final Element root = getRootElement(filePath);
         final String defaultCascade = root.getAttribute(Attributes.ATTR_DEFAULT_CASCADE);
 
-        parseClasses(root, jpaBase, defaultCascade);
+        parseClasses(root, entities, defaultCascade);
 
         // Check for a hbm.xml file only with queries (no entities)
-        if (jpaBase.getEntities().isEmpty()) {
+        if (entities.isEmpty()) {
             final JpaEntity queriesEntity = new JpaEntity();
             parseQueries(root, queriesEntity);
             if (!queriesEntity.getNamedQueries().isEmpty()) {
                 final String fileName = FileUtils.getFileNameNoExtensions(filePath);
                 queriesEntity.setName(fileName);
-                jpaBase.addEntity(queriesEntity);
+                entities.add(queriesEntity);
             }
         }
 
         checkMissingTagAttributeImplementations(root);
 
-        return jpaBase;
+        return entities;
     }
 
     private Element getRootElement(final String filePath)
@@ -76,26 +76,26 @@ public class HbmParser {
         return document.getDocumentElement();
     }
 
-    private void parseClasses(final Element root, final JpaBase jpaBase, final String defaultCascade) {
+    private void parseClasses(final Element root, final List<JpaEntity> entities, final String defaultCascade) {
         final List<Element> classElements = DomUtils.getChildrenByTag(root, Tags.TAG_CLASS);
         for (final Element classElement : classElements) {
             final JpaEntity jpaEntity = parseEntity(classElement, defaultCascade);
-            jpaBase.addEntity(jpaEntity);
-            parseClasses(classElement, jpaBase, defaultCascade);
+            entities.add(jpaEntity);
+            parseClasses(classElement, entities, defaultCascade);
         }
 
         final List<Element> subclassElements = DomUtils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
         for (final Element subclassElement : subclassElements) {
             final JpaEntity jpaEntity = parseEntity(subclassElement, defaultCascade);
-            jpaBase.addEntity(jpaEntity);
-            parseClasses(subclassElement, jpaBase, defaultCascade);
+            entities.add(jpaEntity);
+            parseClasses(subclassElement, entities, defaultCascade);
         }
 
         final List<Element> unionSubclassElements = DomUtils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
         for (final Element unionSubclassElement : unionSubclassElements) {
             final JpaEntity jpaEntity = parseEntity(unionSubclassElement, defaultCascade);
-            jpaBase.addEntity(jpaEntity);
-            parseClasses(unionSubclassElement, jpaBase, defaultCascade);
+            entities.add(jpaEntity);
+            parseClasses(unionSubclassElement, entities, defaultCascade);
         }
     }
 
@@ -118,7 +118,7 @@ public class HbmParser {
 
         // Only for subclasses
         entityDef.setParentClass(classElement.getAttribute(Attributes.ATTR_EXTENDS));
-        entityDef.getDiscriminator(true).setValue(classElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_VALUE));
+        entityDef.getDiscriminator().setValue(classElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_VALUE));
 
         final Element cacheElement = DomUtils.getFirstChildByTag(classElement, Tags.TAG_CACHE);
         if (cacheElement != null) {
@@ -148,13 +148,13 @@ public class HbmParser {
 
         parseProperties(classElement, entityDef);
 
-        parsePropertyList(classElement, entityDef, true);
+        parsePropertyList(classElement, entityDef);
 
         parseRelationships(classElement, entityDef);
 
         parseCollections(classElement, entityDef);
 
-        parseEmbeddedFields(classElement, entityDef);
+        parseComponents(classElement, entityDef);
 
         parseQueries(classElement, entityDef);
 
@@ -164,7 +164,7 @@ public class HbmParser {
     private void parseDiscriminator(final Element element, final JpaEntity entityDef) {
         final Element discriminatorElement = DomUtils.getFirstChildByTag(element, Tags.TAG_DISCRIMINATOR);
         if (discriminatorElement != null) {
-            final JpaDiscriminator jpaDiscriminator = entityDef.getDiscriminator(true);
+            final JpaDiscriminator jpaDiscriminator = entityDef.getDiscriminator();
             jpaDiscriminator.setType(discriminatorElement.getAttribute(Attributes.ATTR_TYPE));
 
             final Element columnElement = DomUtils.getFirstChildByTag(discriminatorElement, Tags.TAG_COLUMN);
@@ -252,24 +252,20 @@ public class HbmParser {
         }
     }
 
-    private void parsePropertyList(final Element element, final JpaEntity entityDef) {
-        parsePropertyList(element, entityDef, false);
-    }
-
     private void parsePropertyList(final Element element, final JpaEntity entityDef, final String uniqueConstraint) {
-        parsePropertyList(element, entityDef, uniqueConstraint, JpaColumn.NaturalId.NONE, false);
+        parsePropertyList(element, entityDef, uniqueConstraint, JpaColumn.NaturalId.NONE);
     }
 
     private void parsePropertyList(final Element element, final JpaEntity entityDef, final JpaColumn.NaturalId naturalId) {
-        parsePropertyList(element, entityDef, null, naturalId, false);
+        parsePropertyList(element, entityDef, null, naturalId);
     }
 
-    private void parsePropertyList(final Element element, final JpaEntity entityDef, final boolean checkComposite) {
-        parsePropertyList(element, entityDef, null, JpaColumn.NaturalId.NONE, checkComposite);
+    private void parsePropertyList(final Element element, final JpaEntity entityDef) {
+        parsePropertyList(element, entityDef, null, JpaColumn.NaturalId.NONE);
     }
 
     private void parsePropertyList(final Element element, final JpaEntity entityDef,
-            final String uniqueConstraint, final JpaColumn.NaturalId naturalId, final boolean checkComposite) {
+            final String uniqueConstraint, final JpaColumn.NaturalId naturalId) {
         final List<Element> propertyElements = DomUtils.getChildrenByTag(element, Tags.TAG_PROPERTY);
         for (final Element propertyElement : propertyElements) {
             final List<JpaColumn> jpaColumns = parseColumns(propertyElement, uniqueConstraint);
@@ -277,12 +273,21 @@ public class HbmParser {
                 final JpaColumn jpaColumn = parseProperty(propertyElement, uniqueConstraint);
                 jpaColumns.add(jpaColumn);
             }
+
             for (final JpaColumn jpaColumn : jpaColumns) {
-                if (checkComposite && jpaColumns.size() > 1) {
-                    jpaColumn.setComposite(true);
-                }
                 jpaColumn.setNaturalId(naturalId);
-                entityDef.addColumn(jpaColumn);
+            }
+
+            if (jpaColumns.size() == 1) {
+                entityDef.addColumn(jpaColumns.get(0));
+            }
+            // Composite column
+            if (jpaColumns.size() > 1) {
+                final JpaCompositeColumn compositeColumn = new JpaCompositeColumn();
+                compositeColumn.setType(propertyElement.getAttribute(Attributes.ATTR_TYPE));
+                compositeColumn.setName(propertyElement.getAttribute(Attributes.ATTR_NAME));
+                jpaColumns.forEach(compositeColumn::addColumn);
+                entityDef.addCompositeColumn(compositeColumn);
             }
         }
     }
@@ -494,6 +499,8 @@ public class HbmParser {
 
         if (StringUtils.isNotBlank(collectionElement.getAttribute(Attributes.ATTR_LAZY))) {
             relationship.setFetch("false".equals(collectionElement.getAttribute(Attributes.ATTR_LAZY)) ? "eager" : "lazy");
+        } else if (StringUtils.isNotBlank(collectionElement.getAttribute(Attributes.ATTR_FETCH))) {
+            relationship.setFetch("join".equals(collectionElement.getAttribute(Attributes.ATTR_FETCH)) ? "eager" : "lazy");
         }
 
         final JpaColumn keyColumn = parseKey(collectionElement, relationship.getName());
@@ -512,23 +519,22 @@ public class HbmParser {
         if (compositeMapkeyElement != null) {
             final List<Element> keyProperties = DomUtils.getChildrenByTag(compositeMapkeyElement, Tags.TAG_KEY_PROPERTY);
             for (final Element keyProperty : keyProperties) {
+                relationship.setCompositeMapKey(compositeMapkeyElement.getAttribute(Attributes.ATTR_CLASS));
+
                 final JpaColumn compositeMapKeyColumn = new JpaColumn();
-                compositeMapKeyColumn.setType(compositeMapkeyElement.getAttribute(Attributes.ATTR_CLASS));
-                if (StringUtils.isBlank(compositeMapKeyColumn.getType())) {
-                    compositeMapKeyColumn.setType(keyProperty.getAttribute(Attributes.ATTR_TYPE));
-                }
-                compositeMapKeyColumn.setComposite(true);
+                compositeMapKeyColumn.setEmbedded(true);
+                compositeMapKeyColumn.setType(keyProperty.getAttribute(Attributes.ATTR_TYPE));
                 compositeMapKeyColumn.setName(keyProperty.getAttribute(Attributes.ATTR_NAME));
                 compositeMapKeyColumn.setColumnName(keyProperty.getAttribute(Attributes.ATTR_COLUMN));
                 relationship.addReferencedColumn(compositeMapKeyColumn);
             }
         }
 
-        relationship.setOrderColumn(collectionElement.getAttribute(Attributes.ATTR_ORDER_BY));
+        relationship.setOrderBy(collectionElement.getAttribute(Attributes.ATTR_ORDER_BY));
 
         final Element indexElement = DomUtils.getFirstChildByTag(collectionElement, Tags.TAG_LIST_INDEX);
         if (indexElement != null) {
-            relationship.setOrderColumn(indexElement.getAttribute(Attributes.ATTR_COLUMN));
+            relationship.setListIndex(indexElement.getAttribute(Attributes.ATTR_COLUMN));
         }
     }
 
@@ -556,7 +562,7 @@ public class HbmParser {
         return null;
     }
 
-    private void parseEmbeddedFields(final Element element, final JpaEntity entityDef) {
+    private void parseComponents(final Element element, final JpaEntity entityDef) {
         final List<Element> componentElements = DomUtils.getChildrenByTag(element, Tags.TAG_COMPONENT);
         for (final Element componentElement : componentElements) {
             final JpaColumn embeddedColumn = new JpaColumn();
@@ -565,12 +571,12 @@ public class HbmParser {
             embeddedColumn.setType(componentElement.getAttribute(Attributes.ATTR_CLASS));
             entityDef.addColumn(embeddedColumn);
 
-            final JpaEntity embeddedField = new JpaEntity();
-            embeddedField.setName(componentElement.getAttribute(Attributes.ATTR_CLASS));
-            embeddedField.setEmbeddable(true);
-            parsePropertyList(componentElement, embeddedField);
+            final JpaEntity embeddedEntity = new JpaEntity();
+            embeddedEntity.setName(componentElement.getAttribute(Attributes.ATTR_CLASS));
+            embeddedEntity.setEmbeddable(true);
+            parsePropertyList(componentElement, embeddedEntity);
 
-            entityDef.addEmbeddedField(embeddedField);
+            entityDef.addEmbeddedEntity(embeddedEntity);
         }
     }
 

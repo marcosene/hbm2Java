@@ -12,9 +12,11 @@ import java.util.TreeSet;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.devtools.utils.Utils;
+
 @Getter
 @Setter
-public abstract class JpaAnnotation {
+public abstract class JpaAbstract {
 
     protected String type;
     protected String name;
@@ -25,25 +27,30 @@ public abstract class JpaAnnotation {
 
     private volatile boolean processed = false;
 
-    public String getReturnType() {
-        if (!typeParams.isEmpty() && typeParams.containsKey("enumClass")) {
-            return typeParams.get("enumClass");
-        }
-        if (type != null && type.endsWith("Type")) {
-            final String normalizedReturnType = type.endsWith("UserType") ?
-                    type.replace("UserType", "") : type.replace("Type", "");
-            return normalizedReturnType.replace(".usertypes", "");
-        } else {
-            return type;
-        }
-    }
-
     public void setType(final String type) {
-        this.type = StringUtils.isNotBlank(type) ? type : null;
+        if (StringUtils.isNotBlank(type)) {
+            this.type = type;
+        }
     }
 
     public void setName(final String name) {
-        this.name = StringUtils.isNotBlank(name) ? name : null;
+        if (StringUtils.isNotBlank(name)) {
+            this.name = name;
+        }
+    }
+
+    public String getReturnType() {
+        if (typeParams.containsKey("enumClass")) {
+            return typeParams.get("enumClass");
+        }
+        if (type != null && type.endsWith("Type")) {
+            final String returnType = type.endsWith("UserType") ?
+                    type.replace("UserType", "") : type.replace("Type", "");
+            // remove possible "usertypes" in the package name
+            return returnType.replace(".usertypes", "");
+        } else {
+            return type;
+        }
     }
 
     public void addTypeParam(final String key, final String value) {
@@ -51,7 +58,9 @@ public abstract class JpaAnnotation {
     }
 
     public void addAnnotation(final String annotation) {
-        imports.addAll(com.devtools.utils.StringUtils.extractFullyQualifiedClassNames(annotation));
-        annotations.add(com.devtools.utils.StringUtils.removePackagesFromText(annotation));
+        if (StringUtils.isNotBlank(annotation)) {
+            imports.addAll(Utils.extractFullyQualifiedClassNames(annotation));
+            annotations.add(Utils.removePackagesFromText(annotation));
+        }
     }
 }

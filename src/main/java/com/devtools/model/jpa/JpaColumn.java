@@ -1,22 +1,24 @@
 package com.devtools.model.jpa;
 
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import org.apache.commons.lang3.StringUtils;
 
 @Getter
 @Setter
-@NoArgsConstructor
-public class JpaColumn extends JpaAnnotation {
+public class JpaColumn extends JpaAbstract {
+
+    public static final int DEFAULT_COLUMN_LENGTH = 255;
+    public static final int DEFAULT_COLUMN_PRECISION = 0;
+    public static final int DEFAULT_COLUMN_SCALE = 0;
 
     public enum NaturalId {
         NONE, MUTABLE, IMMUTABLE
     }
 
     private String columnName;
-    private Integer length = JpaDefaults.DEFAULT_COLUMN_LENGTH;
+    private Integer length = DEFAULT_COLUMN_LENGTH;
     private boolean nullable = true;
     private boolean updatable = true;
     private String foreignKey;
@@ -27,13 +29,12 @@ public class JpaColumn extends JpaAnnotation {
     private boolean optimisticLock = true;
     private String defaultValue;
     private String uniqueConstraint = null;
-    private boolean composite = false;
     private boolean embedded = false;
     private boolean inverseJoin = false;
     private NaturalId naturalId = NaturalId.NONE;
     private String columnDefinition;
-    private Integer precision = JpaDefaults.DEFAULT_COLUMN_PRECISION;
-    private Integer scale = JpaDefaults.DEFAULT_COLUMN_SCALE;
+    private Integer precision = DEFAULT_COLUMN_PRECISION;
+    private Integer scale = DEFAULT_COLUMN_SCALE;
 
     public void setColumnName(final String columnName) {
         if (StringUtils.isNotBlank(columnName)) {

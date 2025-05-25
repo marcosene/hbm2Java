@@ -1,5 +1,7 @@
 package com.devtools.utils;
 
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * Utility class for handling Java class name operations.
  * Provides methods to extract package names, simple class names, and manipulate fully qualified class names.
@@ -18,8 +20,8 @@ public final class ClassNameUtils {
      * @return the simple class name (e.g., "MyClass") or null if input is null/empty
      */
     public static String getSimpleClassName(final String fullClassName) {
-        if (fullClassName == null || fullClassName.isEmpty()) {
-            return null;
+        if (StringUtils.isBlank(fullClassName)) {
+            return "";
         }
         return fullClassName.contains(".") ? 
             fullClassName.substring(fullClassName.lastIndexOf(".") + 1) : fullClassName;
@@ -32,9 +34,10 @@ public final class ClassNameUtils {
      * @return the package name (e.g., "com.example") or empty string if no package
      */
     public static String getPackageName(final String fullClassName) {
-        if (fullClassName != null && fullClassName.contains(".")) {
-            return fullClassName.substring(0, fullClassName.lastIndexOf("."));
+        if (StringUtils.isBlank(fullClassName)) {
+            return "";
         }
-        return "";
+        return fullClassName.contains(".") ?
+            fullClassName.substring(0, fullClassName.lastIndexOf(".")) : "";
     }
 }
