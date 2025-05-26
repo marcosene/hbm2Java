@@ -4,15 +4,17 @@ This guide provides a mapping from Hibernate 4 HBM XML configurations to their c
 
 ## Table of Contents
 - Global Mappings (`<hibernate-mapping>`)
-- Class Mappings (`<class>`)
-- Identifier Mappings (`<id>`, `<composite-id>`)
-- Property Mappings (`<property>`)
-- Component Mappings (`<component>`)
-- Relationship Mappings
-- Collection Mappings
-- Inheritance Mappings
-- Query Mappings
-- Other Mappings
+- Class Mappings (`<class>`, `<subclass>`, `<union-subclass>`)
+- Identifier Mappings (`<id>`, `<generator>`, `<param>`)
+- Version Mappings (`<version>`)
+- Property Mappings (`<property>`, `<column>`, `<type>`)
+- Component Mappings (`<component>`, `<properties>`)
+- Relationship Mappings (`<many-to-one>`, `<one-to-one>`)
+- Collection Mappings (`<set>`, `<list>`, `<bag>`, `<map>`, `<key>`, `<one-to-many>`, `<many-to-many>`, `<list-index>`, `<map-key>`, `<composite-map-key>`, `<key-property>`)
+- Inheritance Mappings (`<discriminator>`, `<join>`)
+- Cache Mappings (`<cache>`)
+- Natural ID Mappings (`<natural-id>`)
+- Query Mappings (`<query>`, `<sql-query>`, `<return-scalar>`)
 
 ---
 
@@ -21,90 +23,239 @@ This guide provides a mapping from Hibernate 4 HBM XML configurations to their c
 | HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
 | :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
 | `<hibernate-mapping default-cascade="save-update">` | (No direct equivalent at package level) | (No direct annotation) | `hbm2java` uses this to set a default cascade type (`JpaEntity.defaultCascade`) for relationships within the HBM file if they don't specify their own cascade. JPA cascades are defined per-relationship. |
-| `<hibernate-mapping schema="MY_SCHEMA">` | (No direct equivalent for default schema at package level for all entities) |  | The `schema` attribute is applied to `@Table(schema = "MY_SCHEMA")` for each entity defined in this HBM, unless overridden at the class level. |
-| `<hibernate-mapping catalog="MY_CATALOG">` | (No direct equivalent for default catalog at package level for all entities) |  | The `catalog` attribute is applied to `@Table(catalog = "MY_CATALOG")` for each entity defined in this HBM, unless overridden at the class level. |
-| `<hibernate-mapping package="com.example.domain">` | (No direct equivalent) |  | This influences how `hbm2java` resolves unqualified class names in the HBM. Generated entities will be in this package if not fully qualified in `class name` attribute. |
-| `<class name="com.example.Foo">` | `@Entity` or `@MappedSuperclass` | | The `name` attribute determines the fully qualified class name. `hbm2java` generates `@Entity`. If `abstract="true"` and no persistent fields/relationships, it might become `@MappedSuperclass`. |
-| `<class name="Foo" table="FOO_TABLE">` | `@Table(name="FOO_TABLE")` |  | Maps to the database table. Applied in conjunction with `@Entity`. |
-| `<class name="Foo" dynamic-update="true">` | (No direct equivalent) | `@org.hibernate.annotations.DynamicUpdate` | Optimizes SQL UPDATE statements by only including changed columns. |
-| `<class name="Foo" dynamic-insert="true">` | (No direct equivalent) | `@org.hibernate.annotations.DynamicInsert` | Optimizes SQL INSERT statements by only including non-null columns. |
-| `<class name="BaseFoo" abstract="true">` | `@MappedSuperclass` or `@Entity` with `abstract class` | | If the class contains persistent fields/associations, it's typically an `@Entity` and an `abstract` Java class. If it has no table and is meant for inheritance, it becomes `@MappedSuperclass`. `hbm2java` makes the Java class `abstract`. |
-| `<class name="Foo" mutable="false">` | (No direct equivalent) | `@org.hibernate.annotations.Immutable` | Marks the entity as immutable (its state cannot change after creation). |
+<!-- Removed schema, catalog, package as they are not in the implemented list -->
 
 ---
 
-## Class Mappings (`<class>`)
+## Class Mappings (`<class>`, `<subclass>`, `<union-subclass>`)
 
-Covers core entity definition attributes from the `<class>` tag.
+Covers core entity definition attributes from the `<class>` tag and its variations for inheritance.
 
 | HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
 | :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
-| `<class name="Foo"> ... <cache usage="read-only"/> ... </class>` | `@Cacheable` (often implied if L2 cache is enabled) | `@org.hibernate.annotations.Cache(usage = CacheConcurrencyStrategy.READ_ONLY)` | `hbm2java` translates `<cache usage="..."/>` to Hibernate's `@Cache` annotation. JPA's `@Cacheable` is a prerequisite. `usage` maps to `CacheConcurrencyStrategy`. |
-| `<class name="Foo"> ... <cache usage="read-write"/> ... </class>` | `@Cacheable` | `@org.hibernate.annotations.Cache(usage = CacheConcurrencyStrategy.READ_WRITE)` | Similar to `read-only`, but for `READ_WRITE` strategy. |
-| `<class name="Foo"> ... <cache usage="nonstrict-read-write"/> ... </class>` | `@Cacheable` | `@org.hibernate.annotations.Cache(usage = CacheConcurrencyStrategy.NONSTRICT_READ_WRITE)` | For `NONSTRICT_READ_WRITE` strategy. |
-| `<class name="Foo"> ... <cache usage="transactional"/> ... </class>` | `@Cacheable` | `@org.hibernate.annotations.Cache(usage = CacheConcurrencyStrategy.TRANSACTIONAL)` | For `TRANSACTIONAL` strategy. |
-| `<class name="Foo" table="MAIN_FOO"> ... <join table="JOIN_FOO"> <key column="FOO_ID"/> <property name="joinedProp"/> </join> ... </class>` | `@SecondaryTable(name="JOIN_FOO", pkJoinColumns=@PrimaryKeyJoinColumn(name="FOO_ID"))` (on class) and `@Column(table="JOIN_FOO")` (on `joinedProp`) |  | `hbm2java` maps `<join>` to `@SecondaryTable`. The nested `<key column="..."/>` defines the `@PrimaryKeyJoinColumn`. Properties within `<join>` get `@Column(table="...")`. |
-| `<id name="id" column="ID_COL" type="long"> <generator class="identity"/> </id>` | `@Id @Column(name="ID_COL") @GeneratedValue(strategy=GenerationType.IDENTITY)` |  | `name` is field name. `column` maps to `@Column`. `type` is Java field type. `identity` maps to `GenerationType.IDENTITY`. |
-| `<id name="id" column="ID_COL" type="long"> <generator class="sequence"> <param name="sequence_name">MY_SEQ</param> </generator> </id>` | `@Id @Column(name="ID_COL") @GeneratedValue(strategy=GenerationType.SEQUENCE, generator="mySeqGen") @SequenceGenerator(name="mySeqGen", sequenceName="MY_SEQ")` |  | `sequence` maps to `GenerationType.SEQUENCE` and `@SequenceGenerator`. `sequence_name` param becomes `sequenceName`. `hbm2java` creates a generator name (e.g., "mySeqGen"). |
-| `<id name="id" type="long"> <generator class="sequence"> <param name="sequence_name">MY_SEQ</param> <param name="initial_value">1</param> <param name="allocation_size">50</param> </generator> </id>` | `@Id @GeneratedValue(strategy=GenerationType.SEQUENCE, generator="mySeqGen") @SequenceGenerator(name="mySeqGen", sequenceName="MY_SEQ", initialValue=1, allocationSize=50)` |  | `initial_value` and `allocation_size` map to `initialValue` and `allocationSize` in `@SequenceGenerator`. |
-| `<id name="id" type="long"> <generator class="seqhilo"> <param name="sequence">MY_SEQHILO</param> <param name="max_lo">99</param> </generator> </id>` | `@Id @GeneratedValue(generator="mySeqHiloGen")` | `@org.hibernate.annotations.GenericGenerator(name="mySeqHiloGen", strategy="seqhilo", parameters = { @org.hibernate.annotations.Parameter(name="sequence", value="MY_SEQHILO"), @org.hibernate.annotations.Parameter(name="max_lo", value="99") })` | `seqhilo` often uses `@GenericGenerator`. Params like `sequence` (for sequence name) and `max_lo` are mapped. |
-| `<id name="id" column="ID_COL" type="long"> <generator class="native"/> </id>` | `@Id @Column(name="ID_COL") @GeneratedValue(strategy=GenerationType.AUTO)` |  | `native` typically maps to `GenerationType.AUTO`, letting Hibernate decide based on dialect (could be identity, sequence, or table). |
-| `<id name="id" column="ID_COL" type="long"> <generator class="assigned"/> </id>` | `@Id @Column(name="ID_COL")` |  | `assigned` means the application assigns the ID, so no `@GeneratedValue`. |
-| `<id name="userId" type="long"> <generator class="foreign"> <param name="property">userProfile</param> </generator> </id>` | `@Id @GeneratedValue(generator="foreignGen")` | `@org.hibernate.annotations.GenericGenerator(name="foreignGen", strategy="foreign", parameters=@org.hibernate.annotations.Parameter(name="property", value="userProfile"))` | `foreign` generator takes the ID from an associated entity (specified by `property` param). Uses `@GenericGenerator`. The field type must match the associated entity's ID type. |
-| `<id name="id" type="long"> <generator class="increment"/> </id>` | `@Id @GeneratedValue(generator="incrementGen")` | `@org.hibernate.annotations.GenericGenerator(name="incrementGen", strategy="increment")` | `increment` generator is for single-node environments, Hibernate fetches max value and increments. Uses `@GenericGenerator`. Not recommended for clusters. |
-| `<id name="id" type="long" unsaved-value="0L"> ... </id>` | `@Id` ... |  | JPA doesn't have a direct equivalent for `unsaved-value`. Hibernate uses it to determine if an entity is transient or detached. For generated IDs, this is less critical. `hbm2java` stores this info but it's not directly translated to an annotation for simple long types. For other types or specific scenarios, it might influence behavior. |
-| `<id name="customId" type="mypackage.MyCustomIdType"> <generator class="mypackage.MyCustomGenerator"/> </id>` | `@Id @GeneratedValue(generator="customGen")` | `@org.hibernate.annotations.GenericGenerator(name="customGen", strategy="mypackage.MyCustomGenerator")` | Custom generator classes are mapped using `@GenericGenerator` with the FQCN as the strategy. The `type` attribute on `<id>` determines the field type. |
-
-<!-- Add other main sections as placeholders similarly -->
+| `<class name="com.example.Foo">` | `@Entity` | | The `name` attribute determines the fully qualified class name. `hbm2java` generates `@Entity`. |
+| `<class name="Foo" table="FOO_TABLE">` | `@Entity` <br/> `@Table(name="FOO_TABLE")` |  | Maps to the database table. |
+| `<class name="Foo" dynamic-update="true">` | `@Entity` | `@org.hibernate.annotations.DynamicUpdate` | Optimizes SQL UPDATE statements by only including changed columns. |
+| `<class name="Foo" dynamic-insert="true">` | `@Entity` | `@org.hibernate.annotations.DynamicInsert` | Optimizes SQL INSERT statements by only including non-null columns. |
+| `<class name="BaseFoo" abstract="true">` | `@MappedSuperclass` or <br/> `@Entity` with `abstract class` | | If it has no table and is meant for inheritance, it becomes `@MappedSuperclass`. `hbm2java` makes the Java class `abstract`. |
+| `<class name="Foo" mutable="false">` | `@Entity` | `@org.hibernate.annotations.Immutable` | Marks the entity as immutable. |
+| `<class name="Foo" discriminator-value="F">` | `@Entity` <br/> `@DiscriminatorValue("F")` | | Used in inheritance hierarchies (typically single table) to specify the value that distinguishes this class. |
+| `<subclass name="com.example.Bar" extends="com.example.Foo">` | `@Entity` | | Defines a subclass in a table-per-hierarchy (`SINGLE_TABLE`) or table-per-subclass (`JOINED`) strategy. The Java class `Bar` should extend `Foo`. |
+| `<subclass name="Bar" table="BAR_TABLE">` | `@Entity` <br/> `@Table(name="BAR_TABLE")` (for JOINED) or <br/> (No separate `@Table` for SINGLE_TABLE if `Bar` uses `Foo`'s table) | | In `JOINED` strategy, `BAR_TABLE` is the table for `Bar`'s specific properties. |
+| `<subclass name="Bar" discriminator-value="B">` | `@Entity` <br/> `@DiscriminatorValue("B")` | | Used in `SINGLE_TABLE` inheritance. |
+| `<union-subclass name="com.example.Baz" extends="com.example.Foo">` | `@Entity` | | Defines a subclass in a table-per-concrete-class (`TABLE_PER_CLASS`) strategy. The Java class `Baz` should extend `Foo`.|
+| `<union-subclass name="Baz" table="BAZ_TABLE">` | `@Entity` <br/> `@Table(name="BAZ_TABLE")` | | `BAZ_TABLE` is the table specifically for the `Baz` entity and its inherited properties. |
+<!-- Removed <cache> and <join> from this section as they will be handled in their own dedicated sections or within other relevant sections like Inheritance or Property Mappings. -->
+<!-- Removed <id> examples from here, they will be in the Identifier Mappings section -->
 
 ---
 
-## Identifier Mappings (`<id>`, `<composite-id>`)
+## Identifier Mappings (`<id>`, `<generator>`, `<param>`)
 
-Covers primary key mappings.
+Covers primary key mappings. `<composite-id>` is not listed as implemented, so examples are focused on `<id>`.
 
 | HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
 | :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
-| `<composite-id name="compId" class="com.example.CompositeKey"> <key-property name="keyPart1" column="KP1_COL" type="string"/> <key-property name="keyPart2" column="KP2_COL" type="long"/> </composite-id>` | `@EmbeddedId @AttributeOverrides({ @AttributeOverride(name="keyPart1", column=@Column(name="KP1_COL")), @AttributeOverride(name="keyPart2", column=@Column(name="KP2_COL")) })` (if `name` attribute present on `composite-id`) |  | `hbm2java` generates an `@EmbeddedId` field named `compId` of type `com.example.CompositeKey`. `<key-property>` elements define fields within `CompositeKey` class. Column names from `<key-property>` are mapped via `@AttributeOverride` on the `@EmbeddedId` field. `type` attributes on `<key-property>` define types in `CompositeKey`. |
-| `<composite-id class="com.example.CompositeKey"> <key-property name="keyPart1" column="KP1_COL"/> <key-property name="keyPart2" column="KP2_COL"/> </composite-id>` | `@IdClass(com.example.CompositeKey.class)` (on entity) and `@Id` on corresponding fields in entity that match `<key-property name="...">` and are defined in `CompositeKey`. |  | If `composite-id` has no `name` attribute, `@IdClass` is used. Entity will have separate fields (e.g., `keyPart1`, `keyPart2`) annotated with `@Id`. `CompositeKey` class defines these fields. Columns are specified on entity fields: `@Column(name="KP1_COL")`. |
-| `<composite-id ...> <key-many-to-one name="user" class="com.example.User" column="USER_ID"/> </composite-id>` | Within `@EmbeddedId` class: `@ManyToOne @JoinColumn(name="USER_ID") private User user;` or for `@IdClass`: `@Id @ManyToOne @JoinColumn(name="USER_ID") private User user;` |  | `<key-many-to-one>` maps to a `@ManyToOne` association as part of the composite key. `column` attribute maps to `@JoinColumn(name=...)`. |
-| `<version name="version" column="OBJ_VERSION" type="integer"/>` | `@Version @Column(name="OBJ_VERSION")` |  | Maps to a field (e.g., `private Integer version;`) annotated with `@Version` for optimistic locking. `type` dictates field type. |
-| `<property name="myField" column="MY_COL" type="string" length="100"/>` | `@Column(name="MY_COL", length=100)` |  | `name` is field name. `column` and `length` map directly to `@Column` attributes. `type` determines Java field type. |
-| `<property name="myField" update="false"/>` | `@Column(updatable=false)` |  | `update` maps to `updatable`. |
-| `<property name="lazyField" type="blob" lazy="true"/>` | `@Basic(fetch=FetchType.LAZY) @Lob` |  | `lazy="true"` on a property maps to `@Basic(fetch=FetchType.LAZY)`. Large types like `blob`/`clob` also get `@Lob`. |
-| `<property name="nonOptimisticField" optimistic-lock="false"/>` | (No direct equivalent) | `@org.hibernate.annotations.OptimisticLock(excluded=true)` | `optimistic-lock="false"` excludes the property from optimistic lock checks. |
-| `<property name="multiColProp"> <column name="COL1"/> <column name="COL2"/> </property>` | (Typically for components/UserTypes) `@Columns(columns = { @Column(name="COL1"), @Column(name="COL2") })` (used with `@Type`) | `@org.hibernate.annotations.Columns(columns = { @org.hibernate.annotations.Column(name="COL1"), @org.hibernate.annotations.Column(name="COL2") })` (Hibernate's version of `@Column` for multi-column types) |  Used when a single property maps to multiple columns, often with a custom Hibernate `UserType` or an embeddable component. `hbm2java` might use this with `@Type`. |
-| `<property name="status" type="org.hibernate.type.EnumType"> <type name="org.hibernate.type.EnumType"> <param name="enumClass">com.example.StatusEnum</param> <param name="useNamed">true</param> </type> </property>` | `@Enumerated(EnumType.STRING)` (if `useNamed` is true) or `@Enumerated(EnumType.ORDINAL)` (if `useNamed` is false or not present) | `@org.hibernate.annotations.Type(type = "org.hibernate.type.EnumType", parameters = { @org.hibernate.annotations.Parameter(name="enumClass", value="com.example.StatusEnum"), @org.hibernate.annotations.Parameter(name="useNamed", value="true") })` (less common if JPA `@Enumerated` suffices) | `hbm2java` attempts to map to `@Enumerated(EnumType.STRING/ORDINAL)`. If specific Hibernate type features are needed, it might use `@org.hibernate.annotations.Type` with parameters like `enumClass` and `useNamed`. |
-| `<property name="customTypeField"> <type name="com.example.MyCustomUserType"> <param name="customParam">value</param> </type> </property>` |  | `@org.hibernate.annotations.Type(type = "com.example.MyCustomUserType", parameters = { @org.hibernate.annotations.Parameter(name="customParam", value="value") })` | When a specific `UserType` is defined via nested `<type>` with FQCN in `name`, it maps to Hibernate's `@Type` annotation, including any parameters. |
+| `<id name="id" type="long"> <generator class="identity"/> </id>` | `@Id` <br/> `@GeneratedValue(strategy=GenerationType.IDENTITY)` |  | `name` is field name. `type` is Java field type. `identity` generator maps to `GenerationType.IDENTITY`. |
+| `<id name="id" column="ID_COL"> <generator class="identity"/> </id>` | `@Id` <br/> `@Column(name="ID_COL")` <br/> `@GeneratedValue(strategy=GenerationType.IDENTITY)` |  | `column` attribute maps to `@Column(name=...)`. |
+| `<id name="id" type="long"> <generator class="sequence"> <param name="sequence_name">MY_SEQ</param> </generator> </id>` | `@Id` <br/> `@GeneratedValue(strategy=GenerationType.SEQUENCE, generator="mySeqGen")` <br/> `@SequenceGenerator(name="mySeqGen", sequenceName="MY_SEQ")` |  | `sequence` generator maps to `GenerationType.SEQUENCE` and requires `@SequenceGenerator`. The `name` in `@param` becomes `sequenceName`. `hbm2java` often creates a generator name (e.g., "mySeqGen"). |
+| `<id name="id" type="long"> <generator class="native"/> </id>` | `@Id` <br/> `@GeneratedValue(strategy=GenerationType.AUTO)` |  | `native` typically maps to `GenerationType.AUTO`. |
+| `<id name="id" type="long"> <generator class="assigned"/> </id>` | `@Id` |  | `assigned` means the application assigns the ID, so no `@GeneratedValue`. |
+| `<id name="id" type="long" unsaved-value="0">` | `@Id` |  | JPA doesn't have a direct equivalent for `unsaved-value`. Hibernate uses it to determine if an entity is transient. Not directly translated to an annotation for simple types. |
+| `<id name="customId" type="mypackage.MyCustomIdType"> <generator class="mypackage.MyCustomGenerator"/> </id>` | `@Id` <br/> `@GeneratedValue(generator="customGen")` | `@org.hibernate.annotations.GenericGenerator(name="customGen", strategy="mypackage.MyCustomGenerator")` | Custom generator `class` maps to `@GenericGenerator` strategy. |
+<!-- Removed composite-id examples as it's not in the implemented list -->
+<!-- Removed version from this section, will add a dedicated Version Mappings section -->
+<!-- Removed property examples from this section, will add a dedicated Property Mappings section -->
 
 ---
 
-## Property Mappings (`<property>`)
+## Version Mappings (`<version>`)
+
+Covers optimistic locking versioning.
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<version name="version" type="integer"/>` | `@Version` |  | Maps to a field (e.g., `private Integer version;`) annotated with `@Version`. `type` dictates field type. |
+| `<version name="timestamp" column="OBJ_VERSION" type="timestamp"/>` | `@Version` <br/> `@Column(name="OBJ_VERSION")` | | The `column` attribute is not directly supported by `@Version` but the mapping tool will apply it to the field which is then used by `@Version`. |
+
+
+---
+
+## Property Mappings (`<property>`, `<column>`, `<type>`)
 
 Covers basic property/attribute mappings.
+This section also includes examples of how nested `<column>` and `<type>` elements within `<property>` are handled.
 
 | HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
 | :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
-| `<component name="address" class="com.example.Address"> <property name="street" column="STREET_COL"/> <property name="city" column="CITY_COL"/> </component>` | `@Embedded private com.example.Address address;` (on entity) and `@Embeddable public class Address { @Column(name="STREET_COL") private String street; @Column(name="CITY_COL") private String city; ... }` |  | `name` is field name in owning entity. `class` is FQCN of embeddable class. Properties inside `<component>` map to fields in the embeddable class. `hbm2java` generates `@Embeddable` on the component class. Column names are defined directly on fields in embeddable class or overridden using `@AttributeOverride(s)` on the `@Embedded` field in the owner. |
-| `<component name="address" class="com.example.Address"> <column-prefix>ADDR_</column-prefix> <property name="street" column="STREET"/> <property name="city" column="CITY"/> </component>` | `@Embedded @AttributeOverrides({ @AttributeOverride(name="street", column=@Column(name="ADDR_STREET")), @AttributeOverride(name="city", column=@Column(name="ADDR_CITY")) }) private com.example.Address address;` |  | `hbm2java` applies `column-prefix` to the column names of properties within the component when using `@AttributeOverride`. If `@AttributeOverride` is not used, the prefix is applied directly in the `@Column` annotations inside the embeddable class. |
-| `<component name="address"> <property name="street"/> <property name="city"/> <parent name="owner"/> </component>` | `@Embedded private Address address;` (on entity). In `Address` class: `private Entity owner;` | `@org.hibernate.annotations.Parent` (on `owner` field in `Address` class) | `<parent name="owner"/>` creates a field in the component class (`Address`) that references the owning entity. `hbm2java` may annotate this with `@Parent` if it chooses to use this Hibernate-specific feature. Otherwise, it's a regular field that needs to be manually initialized by the application if bi-directional access is needed. |
-| `<component name="contactInfo" class="ContactInfo"> <property name="email"/> <component name="phone" class="Phone"> <property name="number" column="PHONE_NUM"/> </component> </component>` | `@Embedded private ContactInfo contactInfo;` (on entity). In `ContactInfo` class: `@Embedded private Phone phone;`. In `Phone` class: `@Column(name="PHONE_NUM") private String number;` |  | Components can be nested. `hbm2java` creates corresponding nested `@Embedded` fields and `@Embeddable` classes. Column naming follows standard rules, potentially using `@AttributeOverride` at each level if specific names are required. |
-| `<many-to-one name="user" class="com.example.User" column="USER_ID"/>` | `@ManyToOne @JoinColumn(name="USER_ID")` |  | `name` is field name. `class` is target entity type. `column` maps to `@JoinColumn(name=...)`. Default fetch is EAGER for ManyToOne. |
-| `<many-to-one name="user" class="User" column="USER_ID" cascade="save-update,delete"/>` | `@ManyToOne(cascade={CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE}) @JoinColumn(name="USER_ID")` |  | `cascade` values map to `CascadeType` enum members. "all" maps to all JPA cascades. "save-update" maps to PERSIST and MERGE. |
-| `<many-to-one name="user" class="User" column="USER_ID" fetch="join"/>` | `@ManyToOne(fetch=FetchType.EAGER) @JoinColumn(name="USER_ID")` |  | `fetch="join"` implies eager fetching. |
-| `<many-to-one name="user" class="User" column="USER_ID" fetch="select" lazy="proxy"/>` | `@ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="USER_ID")` |  | `fetch="select"` with `lazy="proxy"` (default for lazy) implies lazy fetching. `lazy="no-proxy"` would also be LAZY but with different Hibernate mechanics. `lazy="false"` implies EAGER. |
-| `<many-to-one name="user" class="User" column="USER_ID" not-null="true" unique="true"/>` | `@ManyToOne @JoinColumn(name="USER_ID", nullable=false, unique=true)` |  | `not-null` maps to `nullable=false`. `unique` maps to `unique=true`. |
-| `<many-to-one name="user" class="User" column="USER_ID" foreign-key="FK_USER_ORDER"/>` | `@ManyToOne @JoinColumn(name="USER_ID", foreignKey=@ForeignKey(name="FK_USER_ORDER"))` |  | `foreign-key` attribute specifies a custom FK constraint name. |
-| `<many-to-one name="user" class="User" column="USER_ID" property-ref="userCode"/>` | `@ManyToOne @JoinColumn(name="USER_ID", referencedColumnName="userCode")` |  | `property-ref` maps the foreign key to a non-primary key column on the target entity. The referenced column must be unique. |
-| `<one-to-one name="profile" class="com.example.Profile" cascade="all"/>` | `@OneToOne(cascade=CascadeType.ALL) @JoinColumn(...)` (if owning side) or `@OneToOne(mappedBy="...", cascade=CascadeType.ALL)` (if non-owning) |  | `name` and `class` as usual. `cascade` maps similarly to many-to-one. FK column handling depends on which side owns the relationship. |
-| `<one-to-one name="profile" class="Profile" constrained="true"/>` | `@OneToOne @JoinColumn(name="PROFILE_ID") @MapsId` (typically, if FK is also PK) or `@OneToOne @PrimaryKeyJoinColumn` |  | `constrained="true"` means the current entity's PK is also the FK to the associated entity. This often implies a shared primary key scenario. `hbm2java` might use `@MapsId` or `@PrimaryKeyJoinColumn`. The FK column is often the same as the PK column. |
-| `<one-to-one name="address" class="Address" property-ref="person"/>` | `@OneToOne(mappedBy="person")` (if `person` is the owner field in `Address`) |  | If `property-ref` refers to a property on the target entity that establishes the bidirectional link, it's often used to indicate `mappedBy` on the inverse side. `hbm2java` determines the owner based on mapping details. |
+| `<property name="myField" type="string"/>` | `@Basic` (often implied) |  | `name` is field name. `type` determines Java field type. |
+| `<property name="myField" column="MY_COL"/>` | `@Column(name="MY_COL")` |  | `column` attribute maps to `@Column(name=...)`. |
+| `<property name="myField" length="100"/>` | `@Column(length=100)` |  | `length` attribute maps to `@Column(length=...)`. |
+| `<property name="myField" update="false"/>` | `@Column(updatable=false)` |  | `update` attribute maps to `updatable=false`. |
+| `<property name="lazyField" lazy="true"/>` | `@Basic(fetch=FetchType.LAZY)` |  | `lazy="true"` on a property maps to `@Basic(fetch=FetchType.LAZY)`. |
+| `<property name="nonOptimisticField" optimistic-lock="false"/>` | (No direct equivalent) | `@org.hibernate.annotations.OptimisticLock(excluded=true)` | `optimistic-lock="false"` excludes the property from optimistic lock checks. |
+| `<property name="myField"> <column name="MY_COL"/> </property>` | `@Column(name="MY_COL")` | | A nested `<column>` tag can define column attributes. |
+| `<property name="myField"> <column name="MY_COL" length="100"/> </property>` | `@Column(name="MY_COL", length=100)` | | `length` on nested `<column>`. |
+| `<property name="myField"> <column name="MY_COL" not-null="true"/> </property>` | `@Column(name="MY_COL", nullable=false)` | | `not-null="true"` on nested `<column>` maps to `nullable=false`. |
+| `<property name="myField"> <column name="MY_COL" unique="true"/> </property>` | `@Column(name="MY_COL", unique=true)` | | `unique="true"` on nested `<column>`. |
+| `<property name="myField"> <column name="MY_COL" index="MY_IDX"/> </property>` | `@Index(name="MY_IDX")` (on `@Table` or as part of `@TableGenerator`) | | `index` on nested `<column>` maps to `@Index`. `hbm2java` would add this to the `@Table` annotation of the entity or relevant join table. |
+| `<property name="myField"> <column name="MY_COL" default="DEFAULT_VALUE"/> </property>` |  | `@org.hibernate.annotations.ColumnDefault("DEFAULT_VALUE")` | `default` on nested `<column>` maps to Hibernate's `@ColumnDefault`. |
+| `<property name="myField"> <column name="MY_COL" unique-key="MY_UK"/> </property>` | `@Column(name="MY_COL", unique=true)` (JPA standard unique constraint) or part of `@Table(uniqueConstraints=...)` | | `unique-key` on nested `<column>` contributes to a unique constraint. Mapped to `@Table(uniqueConstraints=@UniqueConstraint(columnNames={"MY_COL"}, name="MY_UK"))`. |
+| `<property name="myField"> <column name="MY_COL" sql-type="VARCHAR2(100)"/> </property>` | `@Column(name="MY_COL", columnDefinition="VARCHAR2(100)")` | | `sql-type` on nested `<column>` maps to `columnDefinition`. |
+| `<property name="amount"> <column name="AMT" precision="10" scale="2"/> </property>` | `@Column(name="AMT", precision=10, scale=2)` | | `precision` and `scale` on nested `<column>`. |
+| `<property name="status"> <type name="org.hibernate.type.EnumType"> <param name="enumClass">com.example.StatusEnum</param> <param name="useNamed">true</param> </type> </property>` | `@Enumerated(EnumType.STRING)` (if `useNamed` is true and `param name="enumClass"` present) or <br/> `@Enumerated(EnumType.ORDINAL)` (if `useNamed` is false or not present, and `param name="enumClass"` present) | `@org.hibernate.annotations.Type(type = "org.hibernate.type.EnumType", parameters = { @org.hibernate.annotations.Parameter(name="enumClass", value="com.example.StatusEnum"), @org.hibernate.annotations.Parameter(name="useNamed", value="true") })` (If JPA `@Enumerated` is not sufficient) | Nested `<type name="..."/>` allows specifying a Hibernate type. `hbm2java` tries to map to standard JPA annotations first. Only `name` attribute is implemented for `<type>` and `<param>`. |
+| `<property name="customTypeField"> <type name="com.example.MyCustomUserType"/> </property>` |  | `@org.hibernate.annotations.Type(type = "com.example.MyCustomUserType")` | When a specific `UserType` is defined via nested `<type name="..."/>`, it maps to Hibernate's `@Type`. Only `name` attribute is implemented for `<type>`. |
+<!-- Removed multi-column property example as <columns> tag is not implemented -->
 
 ---
 
-## Component Mappings (`<component>`)
+## Component Mappings (`<component>`, `<properties>`)
 
-Covers embedded object mappings.
+Covers embedded object mappings using `<component>`. The `<properties>` tag is for grouping properties, often within a component or a named property group.
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<component name="address" class="com.example.Address"> <property name="street"/> <property name="city"/> </component>` | `@Embedded` <br/> `private com.example.Address address;` (on entity) <br/> --- <br/> `@Embeddable` <br/> `public class Address { ... }` |  | `name` is field name in owning entity. `class` is FQCN of embeddable class. `hbm2java` generates `@Embeddable` on the component class. Properties inside `<component>` map to fields in the embeddable class. Column names are defined on fields in embeddable class or overridden using `@AttributeOverride(s)`. |
+| `<component name="contactDetails"> <properties name="phoneProperties" unique="false"> <property name="phoneNumber" column="PHONE_NUM"/> <property name="extension" column="PHONE_EXT"/> </properties> </component>` | `@Embedded` (for `contactDetails`) <br/> Within `ContactDetails` embeddable: Potentially another `@Embedded` object for `phoneProperties` or direct properties. |  | The `<properties name="phoneProperties">` tag groups properties. `unique` attribute is not directly mapped to a standard JPA annotation for grouping, but influences schema generation if it implies a unique constraint on the grouped columns. `hbm2java` might create a nested embeddable for `phoneProperties` or handle it as part of the parent component. |
+<!-- Removed column-prefix and parent examples as they are not listed under implemented attributes/tags -->
+<!-- Removed nested component example to simplify, focus is on component and properties tags -->
+
+---
+
+## Relationship Mappings (`<many-to-one>`, `<one-to-one>`)
+
+Covers `<many-to-one>` and `<one-to-one>` mappings.
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<many-to-one name="user" class="com.example.User"/>` | `@ManyToOne` |  | `name` is field name. `class` is target entity type. Default fetch is EAGER. |
+| `<many-to-one name="user" column="USER_ID"/>` | `@ManyToOne` <br/> `@JoinColumn(name="USER_ID")` |  | `column` attribute maps to `@JoinColumn(name=...)`. |
+| `<many-to-one name="user" cascade="save-update,delete"/>` | `@ManyToOne(cascade={CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REMOVE})` |  | `cascade` values map. "save-update" maps to PERSIST and MERGE. |
+| `<many-to-one name="user" fetch="join"/>` | `@ManyToOne(fetch=FetchType.EAGER)` |  | `fetch="join"` implies EAGER fetching. |
+| `<many-to-one name="user" fetch="select" lazy="proxy"/>` | `@ManyToOne(fetch=FetchType.LAZY)` |  | `fetch="select"` with `lazy="proxy"` implies LAZY fetching.  (`lazy` attribute itself can be "true", "false", "proxy", "no-proxy", "extra"). |
+| `<many-to-one name="user" lazy="false"/>` | `@ManyToOne(fetch=FetchType.EAGER)` | | `lazy="false"` implies EAGER. |
+| `<many-to-one name="user" not-null="true"/>` | `@ManyToOne` <br/> `@JoinColumn(nullable=false)` |  | `not-null="true"` maps to `nullable=false` on `@JoinColumn`. |
+| `<many-to-one name="user" unique="true"/>` | `@ManyToOne` <br/> `@JoinColumn(unique=true)` |  | `unique="true"` maps to `unique=true` on `@JoinColumn`. |
+| `<many-to-one name="user" foreign-key="FK_USER_ORDER"/>` | `@ManyToOne` <br/> `@JoinColumn(foreignKey=@ForeignKey(name="FK_USER_ORDER"))` |  | `foreign-key` attribute specifies a custom FK constraint name. |
+| `<many-to-one name="user" property-ref="userCode"/>` | `@ManyToOne` <br/> `@JoinColumn(referencedColumnName="userCode")` |  | `property-ref` maps the FK to a non-PK column on the target entity. Must be unique. |
+| `<many-to-one name="user" access="field"/>` | `@ManyToOne` <br/> `@Access(AccessType.FIELD)` | | `access="field"` forces field access. |
+| `<many-to-one name="user" index="IDX_USER"/>` | `@ManyToOne` <br/> `@JoinColumn(name="USER_ID")` (index applied via `@Table`) | | The `index` attribute on `many-to-one` suggests an index on the foreign key column. `hbm2java` would typically add an `@Index` annotation to the `@Table` definition for the column specified in `@JoinColumn`. |
+| `<one-to-one name="profile" class="com.example.Profile"/>` | `@OneToOne` |  | `name` and `class` as usual. |
+| `<one-to-one name="profile" cascade="all"/>` | `@OneToOne(cascade=CascadeType.ALL)` |  | `cascade` maps similarly to many-to-one. |
+| `<one-to-one name="profile" constrained="true"/>` | `@OneToOne` <br/> `@MapsId` (if FK is also PK) or <br/> `@PrimaryKeyJoinColumn` |  | `constrained="true"` implies shared PK. `hbm2java` might use `@MapsId` or `@PrimaryKeyJoinColumn`. |
+| `<one-to-one name="address" property-ref="person"/>` | `@OneToOne(mappedBy="person")` (if `person` is owner field in `Address`) or <br/> `@JoinColumn(referencedColumnName="person")` (if this side is owner and FK refers to non-PK 'person' field in Address) |  | If `property-ref` indicates the mappedBy property on the target, `mappedBy` is used. If it refers to a non-PK column on the target for joining, `referencedColumnName` is used. |
+<!-- Removed update="false" for relationships as it's not commonly used directly on the relation annotation itself but rather on the JoinColumn if it's part of an Embeddable or specific cases. The "update" attribute is listed for relationship tags, but its JPA mapping can be nuanced. For now, focusing on more direct mappings. -->
+
+---
+
+## Collection Mappings (`<set>`, `<list>`, `<bag>`, `<map>`, `<key>`, `<one-to-many>`, `<many-to-many>`, `<list-index>`, `<map-key>`, `<composite-map-key>`, `<key-property>`)
+
+Covers various collection types and their specific elements.
+
+**General Collection Attributes & Concepts:**
+
+| HBM Attribute       | Typical JPA/Hibernate Annotation/Concept                                     | Notes                                                                                                                                                                                             |
+| :------------------ | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `name`              | Field name in the entity.                                                    | The name of the Java property holding the collection.                                                                                                                                             |
+| `table`             | `@JoinTable(name="...")` (for ManyToMany, or OneToMany with join table), <br/> `@CollectionTable(name="...")` (for ElementCollection) | Specifies the name of the join table or collection table.                                                                                                                                         |
+| `lazy`              | `fetch` attribute in `@OneToMany`, `@ManyToMany`, `@ElementCollection`.      | `lazy="true"` (default) maps to `FetchType.LAZY`. `lazy="false"` maps to `FetchType.EAGER`. `lazy="extra"` maps to `FetchType.LAZY` and enables Hibernate's "extra-lazy" behavior. `hbm2java` may use `@LazyCollection(LazyCollectionOption.EXTRA)` for "extra". |
+| `fetch`             | `@org.hibernate.annotations.Fetch(FetchMode.SELECT/JOIN/SUBSELECT)`          | `fetch="select"` (default) is standard lazy/eager loading. `fetch="join"` implies EAGER with a join. `fetch="subselect"` uses a subselect to fetch collections for multiple parent entities.         |
+| `cascade`           | `cascade` attribute in `@OneToMany`, `@ManyToMany`, `@ElementCollection`.      | HBM cascade options (e.g., "all", "save-update", "delete") map to `CascadeType` values (e.g., `ALL`, `PERSIST`, `MERGE`, `REMOVE`). `delete-orphan` is separate (`orphanRemoval=true`). |
+| `inverse="true"`    | `mappedBy="..."` attribute in `@OneToMany`, `@ManyToMany`.                     | Indicates the collection is the inverse (non-owning) side of a bidirectional relationship. The `mappedBy` value is the name of the property on the owning side.                                        |
+| `order-by`          | `@OrderBy("column_name asc/desc, ...")`                                      | For collections of entities, specifies a DB-level ordering. `column_name` refers to a column in the target entity's table.                                                                       |
+
+**The `<key>` Element:**
+
+| HBM Attribute (`<key>`) | JPA Annotation(s)                                                                 | Notes                                                                                                                               |
+| :---------------------- | :-------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+| `column`                | `@JoinColumn(name="...")` (within `@JoinTable` or directly on collection attribute) | Specifies the foreign key column name in the collection/join table or child table.                                                       |
+| `foreign-key`           | `@JoinColumn(foreignKey=@ForeignKey(name="..."))`                                 | Specifies a custom name for the foreign key constraint.                                                                             |
+
+---
+**Specific Collection Tag Mappings:**
+
+| HBM XML Snippet (General Attributes)                                       | JPA Annotation(s) & Collection Type                                                                                                | Hibernate Annotation(s) (if needed) | Notes                                                                                                                                                                                                                                                           |
+| :------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<set name="items"> <key column="OWNER_ID"/> ... </set>` | `private java.util.Set<Item> items;` <br/> `@OneToMany` or `@ManyToMany` <br/> `@JoinTable(joinColumns=@JoinColumn(name="OWNER_ID"))` (if join table used) | | `hbm2java` maps `<set>` to `java.util.Set`. `<key column="..."/>` maps to `@JoinColumn`. |
+| `<set name="items" table="ITEM_SET_TABLE"> ... </set>` | `... @JoinTable(name="ITEM_SET_TABLE", ...)` (ManyToMany) or <br/> `... @CollectionTable(name="ITEM_SET_TABLE", ...)` (ElementCollection) | | `table` attribute specifies the join/collection table name. |
+| `<set name="items" lazy="true"> ... </set>` | `... @OneToMany(fetch=FetchType.LAZY)` or <br/> `... @ManyToMany(fetch=FetchType.LAZY)` | | `lazy="true"` maps to `FetchType.LAZY`. |
+| `<set name="items" fetch="join"> ... </set>` | `... @OneToMany(fetch=FetchType.EAGER)` or <br/> `... @ManyToMany(fetch=FetchType.EAGER)` | `@org.hibernate.annotations.Fetch(FetchMode.JOIN)` | `fetch="join"` implies EAGER and Hibernate's `FetchMode.JOIN`. |
+| `<set name="items" cascade="all"> ... </set>` | `... @OneToMany(cascade=CascadeType.ALL)` or <br/> `... @ManyToMany(cascade=CascadeType.ALL)` | | `cascade="all"` maps to `CascadeType.ALL`. |
+| `<set name="items" inverse="true"> ... </set>` | `... @OneToMany(mappedBy="ownerProperty")` or <br/> `... @ManyToMany(mappedBy="ownerProperty")` | | `inverse="true"` maps to `mappedBy`. |
+| `<set name="items" order-by="name asc"> ... </set>` | `... @OrderBy("name asc")` | | `order-by` attribute for DB-level ordering. |
+| `<list name="tasks"> <key column="TODO_ID"/> <list-index column="TASK_IDX"/> ... </list>` | `private java.util.List<Task> tasks;` <br/> `@OneToMany` or `@ManyToMany` <br/> `@OrderColumn(name="TASK_IDX")` | | `hbm2java` maps `<list>` to `java.util.List`. `<list-index column="..."/>` adds `@OrderColumn`. |
+| `<bag name="events"> <key column="EVENT_OWNER_ID"/> ... </bag>` | `private java.util.Collection<Event> events;` <br/> `@OneToMany` or `@ManyToMany` | | `hbm2java` typically maps `<bag>` to `java.util.Collection` or `java.util.List`. |
+| `<map name="attributes"> <key column="ENTITY_ID"/> <map-key column="ATTR_NAME" type="string"/> <element column="ATTR_VALUE" type="string"/> </map>` | `private java.util.Map<String, String> attributes;` <br/> `@ElementCollection` <br/> `@CollectionTable(joinColumns=@JoinColumn(name="ENTITY_ID"))` <br/> `@MapKeyColumn(name="ATTR_NAME")` <br/> `@Column(name="ATTR_VALUE")` |  | `hbm2java` maps `<map>` to `java.util.Map`. `<map-key column="..." type="..."/>` maps to `@MapKeyColumn`. `<element column="..." type="..."/>` maps the value. |
+
+---
+**Collection Element Mappings:**
+
+This table details the mapping of elements *within* collection tags like `<set>`, `<list>`, `<bag>`, and `<map>`.
+The `column` attribute on `<element>` and `<many-to-many>` is specific to those tags when used inside collections, and not the general `<column>` tag listed in "Implemented Tags".
+
+| HBM XML Snippet (Nested Element)                                                                                                | JPA Annotation(s) on Collection Field / Related Annotations                                                                                                                                                                                                                                                              | Notes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| :------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`<element>` (Basic Type)** <br/> `<set name="aliases"> <key column="ENTITY_ID"/> <element column="alias_name" type="string"/> </set>`                               | `java.util.Set<String> aliases;` <br/> `@ElementCollection` <br/> `@CollectionTable(name="ENTITY_ALIASES", joinColumns=@JoinColumn(name="ENTITY_ID"))` <br/> `@Column(name="alias_name")` | `<element type="string"/>` maps to a collection of basic types using `@ElementCollection`. The `column="alias_name"` on `<element>` defines the column for these types. The `type` attribute on `<element>` is used by `hbm2java` to determine the Java collection's generic type and the database column type, but `<element>` itself doesn't have a `type` attribute in the provided implemented list. This example assumes `type` on `element` is implicitly handled or refers to the `type` tag used elsewhere. The primary focus here is `column` on `<element>`. |
+| **`<one-to-many>` (Nested)** <br/> `<set name="phones"> <key column="OWNER_ID"/> <one-to-many class="com.example.Phone"/> </set>`                                                | `java.util.Set<Phone> phones;` <br/> `@OneToMany(mappedBy="ownerFieldInPhone")` or <br/> `@OneToMany @JoinColumn(name="OWNER_ID")` | `<one-to-many class="..."/>` nested in a collection tag signifies a one-to-many relationship. `class` is the target entity. `hbm2java` determines `mappedBy` if bidirectional. If unidirectional, `@JoinColumn` (using `<key column="..."/>`) is on the `@OneToMany` side. |
+| **`<many-to-many>` (Nested)** <br/> `<set name="courses" table="STUDENT_COURSES"> <key column="STUDENT_ID"/> <many-to-many class="com.example.Course" column="COURSE_ID"/> </set>` | `java.util.Set<Course> courses;` <br/> `@ManyToMany` <br/> `@JoinTable(name="STUDENT_COURSES", joinColumns=@JoinColumn(name="STUDENT_ID"), inverseJoinColumns=@JoinColumn(name="COURSE_ID"))` | `<many-to-many class="..." column="..."/>` maps to `@ManyToMany`. `table` from parent collection tag is `@JoinTable(name=...)`. `<key column="..."/>` defines `joinColumns`. `column` on `<many-to-many>` defines `inverseJoinColumns`. |
+| **`<many-to-many>` (with `foreign-key`)** <br/> `<set name="roles" table="USER_ROLES"> <key column="USER_ID"/> <many-to-many class="Role" column="ROLE_ID" foreign-key="FK_ROLE_IN_JT"/> </set>` | `java.util.Set<Role> roles;` <br/> `@ManyToMany` <br/> `@JoinTable(name="USER_ROLES", joinColumns=@JoinColumn(name="USER_ID"), inverseJoinColumns=@JoinColumn(name="ROLE_ID", foreignKey=@ForeignKey(name="FK_ROLE_IN_JT")))` | `foreign-key` on `<many-to-many>` applies to the `inverseJoinColumns`'s FK constraint. |
+| **`<list-index>` (for `<list>`)** <br/> `<list name="chapters"> <key column="BOOK_ID"/> <list-index column="chapter_num"/> <one-to-many class="Chapter"/> </list>`       | `java.util.List<Chapter> chapters;` <br/> `@OneToMany(...)` <br/> `@OrderColumn(name="chapter_num")`                                                                                                                                                                                                | `<list-index column="..."/>` inside a `<list>` adds `@OrderColumn(name="...")` to maintain list order. |
+| **`<map-key>` (Basic Type for `<map>`)** <br/> `<map name="systemSettings" table="SETTINGS"> <key column="USER_ID"/> <map-key column="SETTING_NAME" type="string"/> <element column="SETTING_VALUE" type="string"/> </map>` | `java.util.Map<String, String> systemSettings;` <br/> `@ElementCollection` <br/> `@CollectionTable(name="SETTINGS", joinColumns=@JoinColumn(name="USER_ID"))` <br/> `@MapKeyColumn(name="SETTING_NAME")` <br/> `@Column(name="SETTING_VALUE")` | `<map-key column="..." type="..."/>` defines mapping for a basic type map key. `type` attribute informs the Java type of the key. |
+| **`<composite-map-key>` (Embeddable for `<map>`)** <br/> `<map name="customReports" table="USER_REPORTS"> <key column="USER_ID"/> <composite-map-key class="com.example.ReportKey"> <key-property name="reportName" column="REP_NAME" type="string"/> <key-property name="reportVersion" column="REP_VER" type="integer"/> </composite-map-key> <one-to-many class="com.example.ReportData"/> </map>` | `java.util.Map<ReportKey, ReportData> customReports;` <br/> `@OneToMany` <br/> `@MapKeyClass(ReportKey.class)` <br/> `// In ReportKey (@Embeddable):` <br/> `// @Column(name="REP_NAME") private String reportName;` <br/> `// @Column(name="REP_VER") private Integer reportVersion;` | `com.example.ReportKey` must be an `@Embeddable` class. `<composite-map-key class="..."/>` maps to `@MapKeyClass`. `<key-property name="..." column="..." type="..."/>` define fields in the `ReportKey` embeddable class. |
+<!-- Removed <element class="..."> (embeddable element) as it's not explicitly listed and trying to keep examples focused on implemented attributes. -->
+
+---
+
+## Inheritance Mappings (`<discriminator>`, `<join>`)
+
+Covers inheritance strategies. `<subclass>` and `<union-subclass>` are primarily handled in the "Class Mappings" section. This section focuses on elements that define the inheritance strategy itself (`<discriminator>`) and additional tables for joined inheritance (`<join>`).
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<class name="Animal" table="ANIMALS"> <id name="id"/> <discriminator type="string"/> <property name="name"/> <subclass name="Dog" discriminator-value="DOG"/> </class>` | On `Animal` (superclass): `@Inheritance(strategy=InheritanceType.SINGLE_TABLE)` <br/> `@DiscriminatorColumn(discriminatorType=DiscriminatorType.STRING)` <br/> On `Dog` (subclass): `@Entity @DiscriminatorValue("DOG")` |  | For `SINGLE_TABLE` inheritance. `type` on `<discriminator>` maps to `discriminatorType`. The column name for discriminator defaults to `DTYPE` if not specified by a nested `<column>` within `<discriminator>`. (Nested `<column>` for discriminator is not in implemented list). |
+| `<class name="Vehicle" table="VEHICLES"> <id name="id"/> ... <joined-subclass name="Car" table="CARS"> <key column="VEHICLE_ID"/> <property name="numDoors"/> </joined-subclass> </class>` | On `Vehicle` (superclass): `@Inheritance(strategy=InheritanceType.JOINED)` <br/> On `Car` (subclass): `@Entity @Table(name="CARS") @PrimaryKeyJoinColumn(name="VEHICLE_ID")` |  | For `JOINED` strategy. `<key column="..."/>` within `<joined-subclass>` maps to `@PrimaryKeyJoinColumn(name=...)` on the subclass. `table` attribute on `<joined-subclass>` is handled by `@Table` on subclass. |
+| `<class name="Foo" table="MAIN_FOO"> ... <join table="JOIN_FOO"> <key column="FOO_ID"/> <property name="joinedProp"/> </join> ... </class>` | `@SecondaryTable(name="JOIN_FOO", pkJoinColumns=@PrimaryKeyJoinColumn(name="FOO_ID"))` (on class `Foo`) <br/> `@Column(table="JOIN_FOO")` (on `joinedProp` field) |  | `hbm2java` maps `<join table="..."/>` to `@SecondaryTable`. The nested `<key column="..."/>` defines the `@PrimaryKeyJoinColumn`. Properties within `<join>` get `@Column(table="...")`. |
+<!-- Discriminator formula is not implemented. -->
+<!-- Union-subclass is covered in Class Mappings. -->
+
+---
+
+## Cache Mappings (`<cache>`)
+
+Covers entity and collection caching.
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<class name="Foo"> ... <cache usage="read-only"/> ... </class>` | `@Cacheable` (often implied) | `@org.hibernate.annotations.Cache(usage = CacheConcurrencyStrategy.READ_ONLY)` | `hbm2java` translates `<cache usage="..."/>` to Hibernate's `@Cache` annotation. `usage` maps to `CacheConcurrencyStrategy`. |
+| `<set name="items"> <key column="OWNER_ID"/> <cache usage="read-write"/> <one-to-many class="Item"/> </set>` | On `items` collection field: `@Cacheable` (implied) | `@org.hibernate.annotations.Cache(usage = CacheConcurrencyStrategy.READ_WRITE)` | `<cache usage="..."/>` nested within a collection tag maps to Hibernate's `@Cache` on the collection field. |
+<!-- region attribute for cache is not implemented -->
+
+---
+
+## Natural ID Mappings (`<natural-id>`)
+
+Covers mapping of natural business keys.
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<class name="Employee"> ... <natural-id mutable="true"> <property name="employeeNumber"/> <many-to-one name="department"/> </natural-id> ... </class>` | On `employeeNumber` field: `@NaturalId` <br/> On `department` field: `@NaturalId @ManyToOne` | `@org.hibernate.annotations.NaturalId(mutable=true)` on fields. <br/> `@org.hibernate.annotations.NaturalIdCache` (on class `Employee`, if natural-id caching is also configured, which is separate from this tag) | Properties within `<natural-id>` are annotated with `@NaturalId`. `mutable="true"` on `<natural-id>` maps to `@NaturalId(mutable=true)` on each field using Hibernate's annotation. |
+<!-- Caching for natural-id is a separate concern from the <natural-id> tag itself. -->
+
+---
+
+## Query Mappings (`<query>`, `<sql-query>`, `<return-scalar>`)
+
+Covers named HQL and SQL queries.
+
+| HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
+| :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
+| `<query name="findAllUsers"> <![CDATA[ FROM User u ORDER BY u.name ]]> </query>` | `@NamedQuery(name="findAllUsers", query="FROM User u ORDER BY u.name")` (on an entity, or in `package-info.java`) |  | HQL query in CDATA is mapped to `query` attribute of `@NamedQuery`. `name` attribute is used for `name`. |
+| `<sql-query name="listUserValues"> <return-scalar column="user_name" type="string"/> <return-scalar column="user_age" type="integer"/> <![CDATA[ SELECT name AS user_name, age AS user_age FROM USERS ]]> </sql-query>` | `@NamedNativeQuery(name="listUserValues", query="SELECT name AS user_name, age AS user_age FROM USERS", resultSetMapping="userValuesMapping")` <br/> `@SqlResultSetMapping(name="userValuesMapping", columns={@ColumnResult(name="user_name", type=String.class), @ColumnResult(name="user_age", type=Integer.class)})` |  | `<return-scalar column="..." type="..."/>` maps to `@ColumnResult(name="...", type=...)` within a `@SqlResultSetMapping`. `hbm2java` derives Java type from HBM `type`. |
+<!-- Removed sql-query with <return> and <return-join> as those specific sub-tags of sql-query are not listed as implemented. Only <return-scalar> is. -->
+
+---
+<!-- Removed "Other Mappings" section as its content has been distributed or removed based on implemented features. -->
+<!-- Persister, filter-def, filter, optimistic-lock attribute on class are not implemented. -->
 
 | HBM XML Snippet                 | JPA Annotation(s)               | Hibernate Annotation(s) (if needed) | Notes                                    |
 | :------------------------------ | :------------------------------ | :---------------------------------- | :--------------------------------------- |
