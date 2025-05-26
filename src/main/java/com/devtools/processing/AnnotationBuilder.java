@@ -163,7 +163,7 @@ public class AnnotationBuilder {
                 jpaEntity.addAnnotation(discriminatorAnnotation.toString());
             }
         }
-        if (jpaEntity.getInheritance() != null) {
+        if (jpaEntity.getInheritance() != null && !"SINGLE_TABLE".equalsIgnoreCase(jpaEntity.getInheritance())) {
             jpaEntity.addAnnotation("@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType."
                     + jpaEntity.getInheritance() + ")");
         }
@@ -464,17 +464,22 @@ public class AnnotationBuilder {
                 }
             }
 
-            String joinColumn = "";
+            final StringBuilder joinColumn = new StringBuilder();
             if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
                 final JpaColumn referencedColumn = relationship.getReferencedColumns().get(0);
-                joinColumn = "@javax.persistence.JoinColumn(name = \"" + referencedColumn.getColumnName() + "\"" +
-                        (!referencedColumn.isUpdatable() ? ", updatable = false" : "") +
-                        (!referencedColumn.isNullable() ? ", nullable = false" : "") +
-                        (referencedColumn.isUnique() ? ", unique = true" : "") +
-                        (StringUtils.isNotBlank(referencedColumn.getForeignKey()) ?
+                joinColumn.append("@javax.persistence.JoinColumn(");
+                if (StringUtils.isBlank(entityDef.getTable()) &&
+                    StringUtils.isNotBlank(entityDef.getParentTable())) {
+                    joinColumn.append("table = \"").append(entityDef.getParentTable()).append("\", ");
+                }
+                joinColumn.append("name = \"").append(referencedColumn.getColumnName()).append("\"")
+                        .append(!referencedColumn.isUpdatable() ? ", updatable = false" : "")
+                        .append(!referencedColumn.isNullable() ? ", nullable = false" : "")
+                        .append(referencedColumn.isUnique() ? ", unique = true" : "")
+                        .append(StringUtils.isNotBlank(referencedColumn.getForeignKey()) ?
                                 ", foreignKey = @javax.persistence.ForeignKey(name = \"" +
-                                        referencedColumn.getForeignKey() + "\")" : "") +
-                        ")";
+                                referencedColumn.getForeignKey() + "\")" : "")
+                        .append(")");
             }
 
             final StringBuilder relationshipAnnotation = new StringBuilder();
@@ -498,7 +503,7 @@ public class AnnotationBuilder {
                     relationship.addAnnotation(relationshipAnnotation.toString());
 
                     if (!joinColumn.isEmpty()) {
-                        relationship.addAnnotation(joinColumn);
+                        relationship.addAnnotation(joinColumn.toString());
                     }
                     break;
 
@@ -562,7 +567,7 @@ public class AnnotationBuilder {
                     relationship.addAnnotation(relationshipAnnotation.toString());
 
                     if (!joinColumn.isEmpty()) {
-                        relationship.addAnnotation(joinColumn);
+                        relationship.addAnnotation(joinColumn.toString());
                     }
                     break;
 

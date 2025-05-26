@@ -16,6 +16,7 @@ public class JpaEntity extends JpaAbstract {
 
     private String defaultCascade;
     private String table;
+    private String parentTable;
     private String parentClass;
     private String inheritance;
     private JpaDiscriminator discriminator;
@@ -60,6 +61,12 @@ public class JpaEntity extends JpaAbstract {
     public void setTable(final String table) {
         if (StringUtils.isNotBlank(table)) {
             this.table = table;
+        }
+    }
+
+    public void setParentTable(final String parentTable) {
+        if (StringUtils.isNotBlank(parentTable)) {
+            this.parentTable = parentTable;
         }
     }
 
