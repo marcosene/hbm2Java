@@ -16,19 +16,16 @@ NON_IMPLEMENTED_PHRASES = [
     "not typically processed for standard JPA annotation generation",
     "not implemented for annotation generation",
     "is not currently implemented", # variation
-    "are not typically processed for direct annotation generation relevant to core entity model construction", # Specific long one
-    "are not typically processed for direct annotation generation", # General version
-    "attributes for .*? like .*? are not typically processed for standard JPA annotation generation" # For query/sql-query
+    "are not typically processed for direct annotation generation relevant to core entity model construction", 
+    "are not typically processed for direct annotation generation", 
+    "attributes for .*? like .*? are not typically processed for standard JPA annotation generation"
 ]
 
-# Specific HBM patterns that indicate a feature for potential row removal if it's the *primary* focus
-# and associated notes confirm non-implementation.
 HBM_FEATURES_TO_SCRUTINIZE = {
     "<element": "HBM <element> for collections", 
     "formula=": "formula attribute" 
 }
 
-# HTML comments to remove
 COMMENTS_TO_REMOVE_PATTERNS = [
     re.compile(r"<!-- schema, catalog, package attributes for hibernate-mapping are not typically processed for direct annotation generation\. -->", re.IGNORECASE),
     re.compile(r"<!-- Other attributes like 'schema', 'catalog', 'proxy', 'lazy', 'batch-size', 'select-before-update', 'optimistic-lock' for <class> are not typically processed.*? -->", re.IGNORECASE),
@@ -50,6 +47,16 @@ def clean_note_cell(note_text):
     if not note_text:
         return ""
     
+    note_text = re.sub(r'@ElementCollection', '', note_text, flags=re.IGNORECASE)
+    note_text = re.sub(r'HBM `<element>` for mapping basic/embeddable value types to `@ElementCollection` is not currently implemented\.', '', note_text, flags=re.IGNORECASE)
+    note_text = re.sub(r'HBM `<element>` for mapping basic/embeddable value types.*?is not currently implemented\.', '', note_text, flags=re.IGNORECASE) # More general
+    note_text = re.sub(r'HBM `<element>` is not implemented\.', '', note_text, flags=re.IGNORECASE)
+    note_text = re.sub(r'\(e\.g\.\s*`<element>`,\s*(`<one-to-many>`)\)', r'(e.g. \1)', note_text, flags=re.IGNORECASE)
+    note_text = re.sub(r'\(e\.g\.\s*(`<one-to-many>`),\s*`<element>`\)', r'(e.g. \1)', note_text, flags=re.IGNORECASE)
+    # If a sentence becomes "Specific content of set (e.g. ) determines full mapping." change to "Specific content of set (e.g. <one-to-many>) determines full mapping."
+    note_text = re.sub(r'\(e\.g\.\s*\)', '(e.g. `<one-to-many>`)', note_text)
+
+
     parts = re.split(r'(\s*<br/>\s*)', note_text)
     cleaned_parts = []
     
@@ -63,44 +70,65 @@ def clean_note_cell(note_text):
         sentence_fully_about_non_implementation = False
 
         for phrase in NON_IMPLEMENTED_PHRASES:
-            # Test if removing the phrase makes the sentence empty or just punctuation
-            # This helps determine if the *entire sentence* is about non-implementation
-            # We need to be careful with punctuation and whitespace.
-            # A more robust check: see if the phrase is a very large portion of the sentence.
-            # Or, if after removing the phrase, what's left is very short / non-substantive.
-            
-            # Create a pattern that matches the phrase, possibly surrounded by sentence-ending punctuation.
-            # Example: "Feature X is not implemented." -> remove "is not implemented"
-            # If "Feature X." remains, it's not useful.
-            
-            # Simpler approach: if the phrase is in the sentence, remove the sentence.
-            # This is aggressive but matches the "remove *any* sentence, phrase, or part of a sentence" instruction.
             if phrase.lower() in modified_sentence.lower():
-                # Check if this phrase is the bulk of the sentence
-                # A simple heuristic: if the phrase is more than 50% of the sentence length
-                if len(phrase) > 0.5 * len(modified_sentence.strip()):
+                if len(phrase) > 0.5 * len(modified_sentence.strip()): # Heuristic: phrase is major part
                     sentence_fully_about_non_implementation = True
                     break 
-                else: # If it's a smaller part, just remove the phrase
+                else: 
                     modified_sentence = re.sub(r'(?i)\b' + re.escape(phrase) + r'\b\.?', "", modified_sentence).strip()
-
 
         if not sentence_fully_about_non_implementation and modified_sentence.strip() and modified_sentence.strip() != ".":
             cleaned_parts.append(modified_sentence.strip())
         elif sentence_fully_about_non_implementation:
-            pass # Entire sentence was about non-implementation, so it's removed
+            pass 
             
-    # Reconstruct and cleanup
     final_note = "".join(cleaned_parts).strip()
     current_br_pattern = r"(\s*<br/>\s*)"
-    # Remove <br/> if it's at the beginning or end of the note
     final_note = re.sub(f"^{current_br_pattern}+|{current_br_pattern}+$", "", final_note)
-    # Replace multiple <br/> with a single one
     final_note = re.sub(f"{current_br_pattern}{{2,}}", " <br/> ", final_note)
-    final_note = final_note.replace("..", ".").replace(". .", ".") # Fix periods
-    final_note = final_note.strip(" .,;") # Final strip of common trailing punctuation
+    final_note = final_note.replace("..", ".").replace(". .", ".") 
+    final_note = re.sub(r'\s*\.\s*<br/>', ' <br/> ', final_note) # ". <br/>" -> " <br/> "
+    final_note = re.sub(r'\s*,\s*<br/>', ' <br/> ', final_note) # ", <br/>" -> " <br/> "
+    final_note = final_note.strip(" .,;") 
     
     return final_note
+
+def clean_jpa_cell(jpa_text):
+    if not jpa_text: return ""
+    
+    # Remove @ElementCollection and its variants
+    jpa_text = re.sub(r'@ElementCollection\s*or\b', '', jpa_text, flags=re.IGNORECASE) # "@ElementCollection or "
+    jpa_text = re.sub(r'\bor\s*@ElementCollection\b', '', jpa_text, flags=re.IGNORECASE) # " or @ElementCollection"
+    jpa_text = re.sub(r'@ElementCollection', '', jpa_text, flags=re.IGNORECASE) # Standalone @ElementCollection
+    
+    # Remove @CollectionTable(...) specifically when it's qualified with "(for ElementCollection)"
+    jpa_text = re.sub(r'@CollectionTable\([^)]*\)\s*\(for ElementCollection\)', '', jpa_text, flags=re.IGNORECASE)
+    # Remove general ", @ElementCollection" from lists like in "General Collection Attributes & Concepts"
+    jpa_text = re.sub(r',?\s*@ElementCollection\b', '', jpa_text)
+
+
+    # Cleanup leftover "or" or dangling commas/markup from removals
+    jpa_text = re.sub(r'\s+or\s*<br/>', '<br/>', jpa_text, flags=re.IGNORECASE) # " or <br/>" -> "<br/>"
+    jpa_text = re.sub(r'<br/>\s*or\s+', '<br/>', jpa_text, flags=re.IGNORECASE) # "<br/> or " -> "<br/>"
+    jpa_text = re.sub(r'\s+or\s+', ' ', jpa_text) # " X or Y " -> " X Y " (if Y remains) or " X "
+    jpa_text = jpa_text.replace("or     ", "") # Specific cleanup for map example if 'or' is left
+    jpa_text = re.sub(r',\s*,', ',', jpa_text) # ",," -> ","
+    jpa_text = re.sub(r'(,\s*)+<br/>', '<br/>', jpa_text) # ", <br/>" -> "<br/>"
+    jpa_text = re.sub(r'<br/>\s*,', '<br/>', jpa_text) # "<br/> ," -> "<br/>"
+    jpa_text = re.sub(r'\s*,\s*$', '', jpa_text) # Trailing comma after other ops
+    jpa_text = jpa_text.strip(" .,;<br/>") # General strip
+    
+    # Consolidate multiple <br/> and ensure spacing
+    jpa_text = re.sub(r"(\s*<br/>\s*){2,}", " <br/> ", jpa_text).strip()
+    # Remove dangling periods if they are the only thing left on a line segment
+    jpa_text = re.sub(r'<br/>\s*\.\s*<br/>', '<br/> <br/>', jpa_text) # <br/> . <br/> -> <br/> <br/>
+    jpa_text = re.sub(r'^\s*\.\s*<br/>', '<br/>', jpa_text) # . <br/> at start
+    jpa_text = re.sub(r'<br/>\s*\.\s*$', '<br/>', jpa_text) # <br/> . at end
+    if jpa_text == ".": jpa_text = ""
+
+
+    return jpa_text.strip(" .,;<br/>")
+
 
 def process_tables_for_unimplemented(lines):
     new_lines = []
@@ -113,19 +141,14 @@ def process_tables_for_unimplemented(lines):
         line = lines[i]
         stripped_line = line.strip()
 
-        if stripped_line.startswith("|") and ":---" in lines[i+1 if i+1 < len(lines) else i]:
-            # This is likely a header row
-            if not stripped_line.endswith("|"): # Handle cases where header might be oddly split by mistake
-                 if i+1 < len(lines) and lines[i+1].strip().startswith("|") and lines[i+1].strip().endswith("|"): # Check if next line is separator
-                     # Assume this is a valid header
-                     pass
-                 else: # Not a clear table header
-                     new_lines.append(line)
-                     i+=1
-                     continue
-            
+        is_header = stripped_line.startswith("|") and \
+                    stripped_line.endswith("|") and \
+                    i + 1 < len(lines) and \
+                    ":---" in lines[i+1].strip()
+        
+        if is_header:
             in_table = True
-            new_lines.append(line) # Header
+            new_lines.append(line) 
             header_cells = [cell.strip() for cell in stripped_line.strip("|").split("|")]
             try:
                 column_indices['hbm'] = header_cells.index("HBM XML Snippet")
@@ -133,9 +156,8 @@ def process_tables_for_unimplemented(lines):
                 column_indices['notes'] = header_cells.index("Notes")
             except ValueError: 
                 column_indices = {}
-            
             i += 1
-            new_lines.append(lines[i]) # Separator
+            new_lines.append(lines[i]) 
             i += 1
             continue
 
@@ -152,57 +174,47 @@ def process_tables_for_unimplemented(lines):
             i += 1
             continue
 
-        # Inside a table data row
         row_cells_raw = [cell.strip() for cell in stripped_line.strip("|").split("|")]
-        
         row_cells = list(row_cells_raw) 
-        while len(row_cells) < len(header_cells): # Ensure enough cells for safety
+        while len(row_cells) < len(header_cells):
             row_cells.append("")
 
         hbm_snippet = row_cells[column_indices.get('hbm', 0)] if 'hbm' in column_indices and len(row_cells) > column_indices['hbm'] else ""
+        jpa_content_original = row_cells[column_indices.get('jpa_hib', -1)] if 'jpa_hib' in column_indices and len(row_cells) > column_indices['jpa_hib'] else ""
         notes_content_original = row_cells[column_indices.get('notes', -1)] if 'notes' in column_indices and len(row_cells) > column_indices['notes'] else ""
         
         cleaned_note = clean_note_cell(notes_content_original)
+        cleaned_jpa = clean_jpa_cell(jpa_content_original)
+
         if 'notes' in column_indices and len(row_cells) > column_indices['notes']:
              row_cells[column_indices['notes']] = cleaned_note
+        if 'jpa_hib' in column_indices and len(row_cells) > column_indices['jpa_hib']:
+             row_cells[column_indices['jpa_hib']] = cleaned_jpa
         
         delete_row = False
+        if "<element" in hbm_snippet.lower() and \
+           (not cleaned_jpa or cleaned_jpa == " ") and \
+           (not cleaned_note or cleaned_note == " "):
+            delete_row = True
         
-        # Stricter row deletion: if the original note was *entirely* about non-implementation,
-        # and the cleaned note is now empty, the row's purpose was to document this non-implementation.
-        original_note_was_entirely_about_non_implementation = False
-        if notes_content_original.strip(): # Only if there was an original note
+        if not delete_row and notes_content_original.strip():
+            original_note_was_entirely_about_non_implementation = False
             temp_cleaned_original_note = notes_content_original
             for phrase in NON_IMPLEMENTED_PHRASES:
-                # A bit more robust check: if removing the phrase significantly reduces the note or makes it empty
-                # This means the phrase was a core part of the note.
                 if phrase.lower() in temp_cleaned_original_note.lower():
-                    # If removing this phrase makes the note empty or very short (e.g. just punctuation)
-                    if len(re.sub(r'(?i)\b' + re.escape(phrase) + r'\b\.?', "", temp_cleaned_original_note).strip(" .,;<br/>")) < 5: # Heuristic for "very short"
+                    if len(re.sub(r'(?i)\b' + re.escape(phrase) + r'\b\.?', "", temp_cleaned_original_note).strip(" .,;<br/>")) < 10: 
                         original_note_was_entirely_about_non_implementation = True
                         break
             if original_note_was_entirely_about_non_implementation and not cleaned_note.strip():
                 delete_row = True
-
-        # Also, check for specific HBM features that are primary subjects of non-implementation
-        if not delete_row: # Only if not already flagged by general note-based deletion
-            for feature_key, feature_name in HBM_FEATURES_TO_SCRUTINIZE.items():
-                if feature_key in hbm_snippet:
-                    # Check if the original note confirmed non-implementation for this specific feature.
-                    # This implies the row's main purpose might be to show this non-implemented feature.
-                    note_confirmed_feature_unimplemented = False
-                    for phrase in NON_IMPLEMENTED_PHRASES:
-                        if phrase in notes_content_original.lower() and (feature_key in notes_content_original.lower() or feature_name in notes_content_original.lower()):
-                            note_confirmed_feature_unimplemented = True
-                            break
-                    if note_confirmed_feature_unimplemented and not cleaned_note.strip():
-                        # Heuristic: if HBM snippet is relatively simple and focuses on this feature
-                         if len(hbm_snippet) < len(feature_key) + 40 : # Adjusted length
-                            delete_row = True
-                            break
         
         if not delete_row:
             final_row_cells = [" " if cell.strip() == "" else cell.strip() for cell in row_cells]
+            # If all cells are empty after cleaning, consider deleting the row
+            if all(not cell.strip() for cell in final_row_cells):
+                delete_row = True
+        
+        if not delete_row:
             new_lines.append("| " + " | ".join(final_row_cells) + " |")
         
         i += 1
@@ -232,33 +244,32 @@ def remove_unimplemented_features_master(markdown_content):
         modified_line = line
         for pattern in COMMENTS_TO_REMOVE_PATTERNS:
             modified_line = pattern.sub("", modified_line)
-        # Only add line if it's not empty OR if original line was empty (to preserve deliberate blank lines)
         if modified_line.strip() or (not line.strip() and not modified_line.strip()):
              temp_lines_after_comments.append(modified_line)
     lines = temp_lines_after_comments
     
     lines = process_tables_for_unimplemented(lines)
 
+    processed_content = "\n".join(lines)
+    # Global cleanup is now mostly handled within clean_jpa_cell and clean_note_cell
+    # but a final pass for @ElementCollection can be done
+    processed_content = re.sub(r'@ElementCollection', '', processed_content, flags=re.IGNORECASE)
+
+    lines = processed_content.splitlines()
+
     final_lines = []
     last_line_blank = False
     for line_idx, line in enumerate(lines):
         stripped_line = line.strip()
         if stripped_line:
-            # Specific check for table separator lines that might be followed by empty table content if all rows were deleted
-            if re.match(r"\|(:---[:|-]*)+\|", stripped_line): # It's a separator line
-                # Peek ahead: if next line is NOT a data row (doesn't start with |) or end of lines,
-                # it means this table has no more data rows.
+            if re.match(r"\|(:---[:|-]*)+\|", stripped_line): 
                 if line_idx + 1 >= len(lines) or not lines[line_idx+1].strip().startswith("|"):
-                    # This separator is for an empty table. Remove it and the header before it.
-                    # Search backwards for the corresponding header
-                    if final_lines: # ensure final_lines is not empty
-                        # find the last non-empty line that is a header
+                    if final_lines: 
                         for k in range(len(final_lines) -1, -1, -1):
                             if final_lines[k].strip().startswith("|") and not re.match(r"\|(:---[:|-]*)+\|", final_lines[k].strip()):
-                                final_lines.pop(k) # remove header
+                                final_lines.pop(k) 
                                 break 
-                    continue # Don't add this separator
-
+                    continue 
             final_lines.append(line)
             last_line_blank = False
         elif not last_line_blank: 
@@ -283,4 +294,4 @@ if __name__ == "__main__":
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(modified_content)
     
-    print(f"Successfully performed comprehensive cleanup of unimplemented features in {file_path}")
+    print(f"Successfully performed targeted HBM <element> and @ElementCollection cleanup in {file_path}")
