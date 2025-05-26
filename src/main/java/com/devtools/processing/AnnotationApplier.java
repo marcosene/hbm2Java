@@ -40,14 +40,14 @@ public class AnnotationApplier {
     // Initialize cache to track processed classes across the entire entity hierarchy
     private static final Map<String, String> PROCESSED_CLASSES = new HashMap<>();
     private static final Map<String, Set<String>> PROCESSED_FIELDS = new HashMap<>();
+    private static final Map<String, Set<String>> IGNORED_FIELDS = new HashMap<>();
 
     public AnnotationApplier(final String outputFolder) {
         this.outputFolder = outputFolder;
 
         if (PROCESSED_CLASSES.isEmpty()) {
             final Map<String, Set<String>> ignoreFields = FileUtils.readPropertiesFile(IGNORE_PROPERTIES);
-            ignoreFields.keySet().forEach(className -> PROCESSED_CLASSES.put(className, null));
-            PROCESSED_FIELDS.putAll(ignoreFields);
+            IGNORED_FIELDS.putAll(ignoreFields);
         }
     }
 
@@ -66,6 +66,8 @@ public class AnnotationApplier {
         // Parse the file
         final CompilationUnit cu = JavaParserUtils.parseJava(outputFolder, fullClassName);
         if (cu == null) {
+            // Add this failure as a processed class, so we don't check it again later
+            PROCESSED_CLASSES.put(simpleClassName, null);
             if (!isParentClass && !entity.isEmbeddable()) {
                 LOG.warn("Generating a new one in " + outputFolder);
                 final EntityGenerator entityGenerator = new EntityGenerator();
@@ -127,7 +129,7 @@ public class AnnotationApplier {
             // Mark this class as processed
             PROCESSED_CLASSES.put(simpleClassName, parentSimpleClassName);
 
-            if (hasPendingFields(entity)) {
+            if (hasPendingFields(entity) && !PROCESSED_CLASSES.containsKey(parentSimpleClassName)) {
                 writeAnnotations(entity, parentFullClassName, true);
             }
 
@@ -173,17 +175,20 @@ public class AnnotationApplier {
 
     private boolean hasPendingFields(final JpaEntity entity) {
         String clazz = entity.getSimpleName();
-        final List<String> allParentClasses = new ArrayList<>();
+        final Set<String> allParentClasses = new HashSet<>();
         do {
             allParentClasses.add(clazz);
         } while ((clazz = PROCESSED_CLASSES.get(clazz)) != null);
 
-        final List<String> allProcessedFields = new ArrayList<>();
+        final Set<String> allProcessedFields = new HashSet<>();
+        IGNORED_FIELDS.values().forEach(allProcessedFields::addAll);
+
         allParentClasses.forEach(pc -> {
             if (PROCESSED_FIELDS.containsKey(pc)) {
                 allProcessedFields.addAll(PROCESSED_FIELDS.get(pc));
             }
         });
+
         getAllFields(entity).forEach(jpaElement -> {
             if (!jpaElement.isProcessed() &&
                     allProcessedFields.contains(jpaElement.getName())) {

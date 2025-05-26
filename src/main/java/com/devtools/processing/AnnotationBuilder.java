@@ -109,6 +109,10 @@ public class AnnotationBuilder {
                     jpaEntity.getTable() + "\", optional = false)");
         }
 
+        if (jpaEntity.isLazy()) {
+            jpaEntity.addAnnotation("@org.hibernate.annotations.Proxy(lazy = true)");
+        }
+
         if (StringUtils.isNotBlank(jpaEntity.getCacheUsage())) {
             jpaEntity.addAnnotation("@javax.persistence.Cacheable");
             switch (jpaEntity.getCacheUsage()) {

@@ -115,6 +115,7 @@ public class HbmParser {
         entityDef.setDynamicUpdate(classElement.getAttribute(Attributes.ATTR_DYNAMIC_UPDATE));
         entityDef.setAbstractClass(classElement.getAttribute(Attributes.ATTR_ABSTRACT));
         entityDef.setMutable(classElement.getAttribute(Attributes.ATTR_MUTABLE));
+        entityDef.setLazy(classElement.getAttribute(Attributes.ATTR_LAZY));
 
         // Only for subclasses
         entityDef.setParentClass(classElement.getAttribute(Attributes.ATTR_EXTENDS));

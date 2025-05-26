@@ -106,6 +106,8 @@ public class ConversionProcessor {
             final List<File> files = paths
                     .filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(HBM_FILE_EXTENSION))
+                    .filter(path -> !path.toString().contains(File.separator + "build" + File.separator))
+                    .filter(path -> !path.toString().contains(File.separator + "target" + File.separator))
                     .map(Path::toFile)
                     .toList();
 
