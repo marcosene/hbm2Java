@@ -1,10 +1,14 @@
 package com.devtools.processing;
 
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
@@ -98,13 +102,17 @@ public class ConversionProcessor {
     }
 
     private File[] findHbmFiles(final File inputDir, final String inputFolder) {
-        final File[] files = inputDir.listFiles((dir, name) -> name.endsWith(HBM_FILE_EXTENSION));
-        
-        if (files == null) {
-            throw new RuntimeException("Unable to list files in directory: " + inputFolder);
+        try (final Stream<Path> paths = Files.walk(Paths.get(inputDir.getAbsolutePath()))) {
+            final List<File> files = paths
+                    .filter(Files::isRegularFile)
+                    .filter(path -> path.toString().endsWith(HBM_FILE_EXTENSION))
+                    .map(Path::toFile)
+                    .toList();
+
+            return files.toArray(new File[0]);
+        } catch (final Exception e) {
+            throw new RuntimeException("Unable to list files recursively in directory: " + inputFolder, e);
         }
-        
-        return files;
     }
 
     private Map<String, JpaEntity> parseHbmFiles(final File[] hbmFiles) {
@@ -150,17 +158,25 @@ public class ConversionProcessor {
 
     private void configureInheritanceSettings(final Map<String, JpaEntity> jpaEntityMap) {
         for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
-            final String parentClassName = jpaEntity.getSimpleParentClass();
+            String parentClassName = jpaEntity.getSimpleParentClass();
             
             if (parentClassName == null) {
                 continue;
             }
 
-            final JpaEntity parentEntity = jpaEntityMap.get(jpaEntity.getSimpleParentClass());
+            JpaEntity parentEntity = jpaEntityMap.get(parentClassName);
+            while (parentEntity != null && StringUtils.isBlank(parentEntity.getTable()) &&
+                   jpaEntityMap.get(parentClassName) != null) {
+                parentEntity = jpaEntityMap.get(parentClassName);
+                parentClassName = parentEntity.getSimpleParentClass();
+            }
 
-            if (parentEntity == null || parentEntity.getDiscriminator() == null ||
-                parentEntity.getDiscriminator().getColumn() == null) {
-                return;
+            if (parentEntity == null) {
+                continue;
+            }
+
+            if (StringUtils.isNotBlank(parentEntity.getTable())) {
+                jpaEntity.setParentTable(parentEntity.getTable());
             }
 
             final String inheritanceStrategy = determineInheritanceStrategy(jpaEntity, parentEntity);
