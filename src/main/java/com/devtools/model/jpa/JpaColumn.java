@@ -20,6 +20,7 @@ public class JpaColumn extends JpaAbstract {
     }
 
     private String columnName;
+    private String table;
     private Integer length = DEFAULT_COLUMN_LENGTH;
     private boolean nullable = true;
     private boolean updatable = true;
@@ -41,6 +42,12 @@ public class JpaColumn extends JpaAbstract {
     public void setColumnName(final String columnName) {
         if (StringUtils.isNotBlank(columnName)) {
             this.columnName = trim(columnName);
+        }
+    }
+
+    public void setTable(final String table) {
+        if (StringUtils.isNotBlank(table)) {
+            this.table = trim(table);
         }
     }
 

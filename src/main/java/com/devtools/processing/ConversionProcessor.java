@@ -194,11 +194,13 @@ public class ConversionProcessor {
     }
 
     private InheritanceType determineInheritanceStrategy(final JpaEntity childEntity, final JpaEntity parentEntity) {
-        if (childEntity.isSecondTable()) {
+        // if both parent and child has a table defined in the class, it's a joined strategy
+        if (StringUtils.isNotBlank(parentEntity.getTable()) &&
+                StringUtils.isNotBlank(childEntity.getTable())) {
             return InheritanceType.JOINED;
-        }
 
-        if (StringUtils.isNotBlank(childEntity.getTable())) {
+        } else if (StringUtils.isNotBlank(childEntity.getTable())) {
+            // if only the child has a table set, so it's a table per class strategy
             return InheritanceType.TABLE_PER_CLASS;
         }
 

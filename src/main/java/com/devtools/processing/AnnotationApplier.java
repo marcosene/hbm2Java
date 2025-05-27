@@ -129,7 +129,7 @@ public class AnnotationApplier {
             // Mark this class as processed
             PROCESSED_CLASSES.put(simpleClassName, parentSimpleClassName);
 
-            if (hasPendingFields(entity)) {
+            if (hasPendingFields(entity) && !IGNORED_FIELDS.containsKey(parentSimpleClassName)) {
                 writeAnnotations(entity, parentFullClassName, true);
             }
 

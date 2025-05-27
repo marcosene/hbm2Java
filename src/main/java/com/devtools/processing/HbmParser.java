@@ -105,13 +105,7 @@ public class HbmParser {
     }
 
     private JpaEntity parseEntity(final Element classElement, final String defaultCascade) {
-        return parseEntity(null, classElement, defaultCascade);
-    }
-
-    private JpaEntity parseEntity(JpaEntity entityDef, final Element classElement, final String defaultCascade) {
-        if (entityDef == null) {
-            entityDef = new JpaEntity();
-        }
+        final JpaEntity entityDef = new JpaEntity();
 
         entityDef.setDefaultCascade(defaultCascade);
         entityDef.setName(classElement.getAttribute(Attributes.ATTR_NAME));
@@ -126,22 +120,27 @@ public class HbmParser {
         entityDef.setParentClass(classElement.getAttribute(Attributes.ATTR_EXTENDS));
         entityDef.getDiscriminator().setValue(classElement.getAttribute(Attributes.ATTR_DISCRIMINATOR_VALUE));
 
-        final Element cacheElement = DomUtils.getFirstChildByTag(classElement, Tags.TAG_CACHE);
-        if (cacheElement != null) {
-            entityDef.setCacheUsage(cacheElement.getAttribute(Attributes.ATTR_USAGE));
-        }
+        parseClassElements(entityDef, classElement);
 
         final Element joinElement = DomUtils.getFirstChildByTag(classElement, Tags.TAG_JOIN);
         if (joinElement != null) {
-            entityDef.setTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
-            entityDef.setSecondTable(true);
+            entityDef.setSecondTable(joinElement.getAttribute(Attributes.ATTR_TABLE));
 
-            final JpaColumn keyColumn = parseKey(joinElement, null);
+            final JpaColumn keyColumn = parseKey(entityDef, joinElement, null);
             if (keyColumn != null) {
                 entityDef.setSecondTableKeys(keyColumn);
             }
 
-            parseEntity(entityDef, joinElement, defaultCascade);
+            parseClassElements(entityDef, joinElement);
+        }
+
+        return entityDef;
+    }
+
+    private void parseClassElements(final JpaEntity entityDef, final Element classElement) {
+        final Element cacheElement = DomUtils.getFirstChildByTag(classElement, Tags.TAG_CACHE);
+        if (cacheElement != null) {
+            entityDef.setCacheUsage(cacheElement.getAttribute(Attributes.ATTR_USAGE));
         }
 
         parseDiscriminator(classElement, entityDef);
@@ -163,8 +162,6 @@ public class HbmParser {
         parseComponents(classElement, entityDef);
 
         parseQueries(classElement, entityDef);
-
-        return entityDef;
     }
 
     private void parseDiscriminator(final Element element, final JpaEntity entityDef) {
@@ -238,7 +235,7 @@ public class HbmParser {
     private void parseVersions(final Element element, final JpaEntity entityDef) {
         final List<Element> versionElements = DomUtils.getChildrenByTag(element, Tags.TAG_VERSION);
         for(final Element versionElement : versionElements) {
-            final List<JpaColumn> jpaColumns = parseColumns(versionElement, null);
+            final List<JpaColumn> jpaColumns = parseColumns(entityDef, versionElement, null);
             for (final JpaColumn jpaColumn : jpaColumns) {
                 jpaColumn.setVersion(true);
                 entityDef.addColumn(jpaColumn);
@@ -274,7 +271,7 @@ public class HbmParser {
             final String uniqueConstraint, final JpaColumn.NaturalId naturalId) {
         final List<Element> propertyElements = DomUtils.getChildrenByTag(element, Tags.TAG_PROPERTY);
         for (final Element propertyElement : propertyElements) {
-            final List<JpaColumn> jpaColumns = parseColumns(propertyElement, uniqueConstraint);
+            final List<JpaColumn> jpaColumns = parseColumns(entityDef, propertyElement, uniqueConstraint);
             if (jpaColumns.isEmpty()) {
                 final JpaColumn jpaColumn = parseProperty(propertyElement, uniqueConstraint);
                 jpaColumns.add(jpaColumn);
@@ -326,7 +323,8 @@ public class HbmParser {
         return jpaColumn;
     }
 
-    private List<JpaColumn> parseColumns(final Element parentElement, final String uniqueConstraint) {
+    private List<JpaColumn> parseColumns(final JpaEntity entityDef, final Element parentElement,
+            final String uniqueConstraint) {
         final List<JpaColumn> jpaColumns = new ArrayList<>();
 
         final List<Element> columns = DomUtils.getChildrenByTag(parentElement, Tags.TAG_COLUMN);
@@ -337,6 +335,9 @@ public class HbmParser {
                 jpaColumn.setInverseJoin(true);
             }
 
+            if (StringUtils.isNotBlank(entityDef.getSecondTable())) {
+                jpaColumn.setTable(entityDef.getSecondTable());
+            }
             parseColumn(columnElement, jpaColumn);
             jpaColumns.add(jpaColumn);
         }
@@ -437,7 +438,7 @@ public class HbmParser {
         relationship.setOptional(optional);
         relationship.setMappedBy(mappedBy);
 
-        final List<JpaColumn> jpaColumns = parseColumns(relationshipElement, null);
+        final List<JpaColumn> jpaColumns = parseColumns(entityDef, relationshipElement, null);
         if (!jpaColumns.isEmpty()) {
             for (final JpaColumn jpaColumn : jpaColumns) {
                 if (StringUtils.isNotBlank(update)) {
@@ -509,7 +510,7 @@ public class HbmParser {
             relationship.setFetch("join".equals(collectionElement.getAttribute(Attributes.ATTR_FETCH)) ? "eager" : "lazy");
         }
 
-        final JpaColumn keyColumn = parseKey(collectionElement, relationship.getName());
+        final JpaColumn keyColumn = parseKey(entityDef, collectionElement, relationship.getName());
         if (keyColumn != null) {
             relationship.addReferencedColumn(keyColumn);
         }
@@ -544,7 +545,7 @@ public class HbmParser {
         }
     }
 
-    private JpaColumn parseKey(final Element parentElement, final String name) {
+    private JpaColumn parseKey(final JpaEntity entityDef, final Element parentElement, final String name) {
         final Element keyElement = DomUtils.getFirstChildByTag(parentElement, Tags.TAG_KEY);
         if (keyElement != null) {
             JpaColumn keyColumn = null;
@@ -554,7 +555,7 @@ public class HbmParser {
                 keyColumn.setName(name);
                 keyColumn.setColumnName(keyElement.getAttribute(Attributes.ATTR_COLUMN));
             } else {
-                final List<JpaColumn> jpaColumns = parseColumns(keyElement, null);
+                final List<JpaColumn> jpaColumns = parseColumns(entityDef, keyElement, null);
                 if (!jpaColumns.isEmpty()) {
                     keyColumn = jpaColumns.get(0);
                 }

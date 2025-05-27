@@ -65,7 +65,9 @@ public class AnnotationBuilder {
         if (jpaEntity.isEmbeddable()) {
             jpaEntity.addAnnotation("@javax.persistence.Embeddable");
         } else {
-            if (StringUtils.isBlank(jpaEntity.getTable()) && jpaEntity.getDiscriminator() == null) {
+            if (StringUtils.isBlank(jpaEntity.getTable()) &&
+                    StringUtils.isBlank(jpaEntity.getSecondTable()) &&
+                    jpaEntity.getDiscriminator() == null) {
                 jpaEntity.addAnnotation("@javax.persistence.MappedSuperclass");
             } else {
                 jpaEntity.addAnnotation("@javax.persistence.Entity");
@@ -77,13 +79,8 @@ public class AnnotationBuilder {
             final Map<String, StringBuilder> uniqueConstraints = buildUniqueConstraints(jpaEntity);
 
             final StringBuilder tableAnnotation = new StringBuilder();
-            if (jpaEntity.isSecondTable()) {
-                tableAnnotation.append("@javax.persistence.SecondaryTable(name = \"");
-            } else {
-                tableAnnotation.append("@javax.persistence.Table(name = \"");
-            }
+            tableAnnotation.append("@javax.persistence.Table(name = \"");
             tableAnnotation.append(jpaEntity.getTable()).append("\"");
-
             if (!indexes.isEmpty()) {
                 tableAnnotation.append(",\n    indexes = {\n").append(indexes).append("\n    }");
             }
@@ -96,19 +93,25 @@ public class AnnotationBuilder {
                 }
                 tableAnnotation.append("    }\n");
             }
-            if (jpaEntity.isSecondTable() && jpaEntity.getSecondTableKeys() != null) {
+
+            tableAnnotation.append(")");
+            jpaEntity.addAnnotation(tableAnnotation.toString());
+        }
+
+        if (StringUtils.isNotBlank(jpaEntity.getSecondTable())) {
+            final StringBuilder tableAnnotation = new StringBuilder();
+            tableAnnotation.append("@javax.persistence.SecondaryTable(name = \"");
+            tableAnnotation.append(jpaEntity.getSecondTable()).append("\"");
+
+            if (jpaEntity.getSecondTableKeys() != null) {
                 tableAnnotation.append(",\n    pkJoinColumns = @javax.persistence.PrimaryKeyJoinColumn(name = \"")
                         .append(jpaEntity.getSecondTableKeys().getColumnName()).append("\")");
                 tableAnnotation.append(",\n    foreignKey = @javax.persistence.ForeignKey(name = \"")
                         .append(jpaEntity.getSecondTableKeys().getForeignKey()).append("\")\n");
             }
+
             tableAnnotation.append(")");
             jpaEntity.addAnnotation(tableAnnotation.toString());
-        }
-
-        if (jpaEntity.isSecondTable()) {
-            jpaEntity.addAnnotation("@org.hibernate.annotations.Table(appliesTo = \"" +
-                    jpaEntity.getTable() + "\", optional = false)");
         }
 
         if (jpaEntity.isLazy()) {
@@ -399,6 +402,9 @@ public class AnnotationBuilder {
     private String buildColumn(final JpaColumn col) {
         final StringBuilder columnAnnotation = new StringBuilder();
         columnAnnotation.append("@javax.persistence.Column(");
+        if (StringUtils.isNotBlank(col.getTable())) {
+            columnAnnotation.append("table = \"").append(col.getTable()).append("\", ");
+        }
         columnAnnotation.append("name = \"").append(col.getColumnName()).append("\"");
 
         if (col.getLength() != null && col.getLength() != JpaColumn.DEFAULT_COLUMN_LENGTH) {

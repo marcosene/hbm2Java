@@ -21,6 +21,8 @@ public class JpaEntity extends JpaAbstract {
     private String defaultCascade;
     private String table;
     private String parentTable;
+    private String secondTable;
+    private JpaColumn secondTableKeys;
     private String parentClass;
     private InheritanceType inheritance;
     private JpaDiscriminator discriminator;
@@ -29,8 +31,6 @@ public class JpaEntity extends JpaAbstract {
     private boolean abstractClass = false;
     private boolean mutable = true;
     private boolean embeddable = false;
-    private boolean secondTable = false;
-    private JpaColumn secondTableKeys;
     private String cacheUsage;
     private boolean lazy = false;
 
@@ -72,6 +72,12 @@ public class JpaEntity extends JpaAbstract {
     public void setParentTable(final String parentTable) {
         if (StringUtils.isNotBlank(parentTable)) {
             this.parentTable = trim(parentTable);
+        }
+    }
+
+    public void setSecondTable(final String secondTable) {
+        if (StringUtils.isNotBlank(secondTable)) {
+            this.secondTable = trim(secondTable);
         }
     }
 
