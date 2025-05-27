@@ -109,6 +109,10 @@ public class AnnotationBuilder {
                     jpaEntity.getTable() + "\", optional = false)");
         }
 
+        if (jpaEntity.isLazy()) {
+            jpaEntity.addAnnotation("@org.hibernate.annotations.Proxy(lazy = true)");
+        }
+
         if (StringUtils.isNotBlank(jpaEntity.getCacheUsage())) {
             jpaEntity.addAnnotation("@javax.persistence.Cacheable");
             switch (jpaEntity.getCacheUsage()) {
@@ -273,7 +277,11 @@ public class AnnotationBuilder {
                 }
                 break;
             default:
-                jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.AUTO)");
+                jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(generator = \"" +
+                        PREFIX_GENERATOR + entityDef.getSimpleName() + "\")");
+                jpaPrimaryKey.addAnnotation("@org.hibernate.annotations.GenericGenerator(name = \"" +
+                        PREFIX_GENERATOR + entityDef.getSimpleName() + "\", strategy = \"" +
+                        entityDef.getPrimaryKey().getGeneratorType() + "\")");
                 break;
             }
         }

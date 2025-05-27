@@ -28,6 +28,7 @@ public class JpaEntity extends JpaAbstract {
     private boolean secondTable = false;
     private JpaColumn secondTableKeys;
     private String cacheUsage;
+    private boolean lazy = false;
 
     private JpaPrimaryKey primaryKey;
     private final List<JpaColumn> columns = new ArrayList<>();
@@ -108,6 +109,12 @@ public class JpaEntity extends JpaAbstract {
     public void setCacheUsage(final String cacheUsage) {
         if (StringUtils.isNotBlank(cacheUsage)) {
             this.cacheUsage = cacheUsage;
+        }
+    }
+
+    public void setLazy(final String lazy) {
+        if (StringUtils.isNotBlank(lazy)) {
+            this.lazy = Boolean.parseBoolean(lazy);
         }
     }
 

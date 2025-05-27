@@ -1,22 +1,24 @@
 
 # hbm2Java
 
-**hbm2Java** is a comprehensive Java command-line tool designed to convert Hibernate mapping files (`*.hbm.xml`) into Java classes annotated with JPA annotations. This tool facilitates the migration from legacy Hibernate XML configurations to the modern JPA annotation-based approach, supporting both new file generation and annotation of existing Java classes.
+**hbm2Java** is a Java command-line tool designed to convert Hibernate mapping files (`*.hbm.xml`) in a folder (and all of its subfolders recursively) into Java classes annotated with JPA annotations.
+This tool facilitates the migration from legacy Hibernate XML configurations to the modern JPA annotation-based approach, supporting both new file generation and annotation of existing Java classes.
 
 ## Features
 
 ### Core Functionality
 - **HBM Parsing**: Parses Hibernate `*.hbm.xml` files and extracts entity metadata
-- **JPA Annotation Generation**: Generates appropriate JPA annotations for entities, relationships, and mappings
+- **JPA Annotation Generation**: Generates appropriate JPA annotations for entities, fields, relationships, etc.
 - **Dual Operation Modes**: 
   - **Generation Mode**: Creates new Java entity files with JPA annotations
   - **Annotation Mode**: Adds JPA annotations to existing Java entity files
 - **Batch Processing**: Processes multiple HBM files in a single operation
 
-### Advanced Features
+### Persistence Features Covered
 - **Inheritance Support**: Handles entity inheritance with automatic strategy detection (SINGLE_TABLE, JOINED, TABLE_PER_CLASS)
 - **Relationship Mapping**: Supports One-to-One, One-to-Many, Many-to-One, and Many-to-Many relationships
-- **Embeddable Entities**: Automatically creates embeddable classes for composite types
+- **Embeddable Entities**: Automatically annotates embeddable classes for composite types
+- **Attribute Overrides**: Supports customization of column mappings for composite attributes
 - **Foreign Key Management**: Configures bidirectional relationships and foreign key mappings
 - **Named Queries**: Preserves and converts Hibernate named queries to JPA format
 - **Discriminator Columns**: Handles inheritance discriminator configurations
@@ -26,18 +28,6 @@
 - **Detailed Logging**: Extensive logging for monitoring conversion progress and debugging
 - **File Validation**: Input validation and directory structure verification
 - **Package Structure Preservation**: Maintains existing package structures when annotating files
-
-### Ignoring Specific Fields
-The tool allows ignoring specific fields during JPA annotation by creating and configuring an `ignore.properties` file in the `src/main/resources` directory.
-
-The format for entries in `ignore.properties` is: `simpleClassName={field1,field2,...}`.
-
-For example:
-`MyClass=fieldToIgnore,anotherField`
-
-Placeholders can be used to reference other lists of fields. For example:
-- `InsertTraceable=insertedAt,insertedBy`
-- `UpdateTraceable=updatedAt,updatedBy,modCount,${InsertTraceable}` (where `${InsertTraceable}` will be replaced by `insertedAt,insertedBy`)
 
 ## Prerequisites
 
@@ -69,11 +59,24 @@ java -jar target/hbm2java-1.0-SNAPSHOT.jar <inputFolder> <outputFolder> [--annot
 
 ### Parameters
 
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `inputFolder` | Yes | Directory containing Hibernate `*.hbm.xml` files |
+| Parameter | Required | Description                                                                   |
+|-----------|----------|-------------------------------------------------------------------------------|
+| `inputFolder` | Yes | Base folder for searching Hibernate `*.hbm.xml` files recursively             |
 | `outputFolder` | Yes | Target directory for generated files or base search folder for existing files |
-| `--annotateExisting` | No | Flag to annotate existing Java files instead of generating new ones |
+| `--annotateExisting` | No | Flag to annotate existing Java files instead of generating new ones           |
+
+### Ignoring Specific Fields
+
+The tool allows ignoring specific fields during JPA annotation by creating and configuring an `ignore.properties` file in the `src/main/resources` directory.
+
+The format for entries in `ignore.properties` is: `simpleClassName={field1,field2,...}`.
+
+For example:
+`MyClass=fieldToIgnore,anotherField`
+
+Placeholders can be used to reference other lists of fields. For example:
+- `MyFirstClass=fieldToIgnore,anotherField`
+- `MySecondClass=oneMoreField,${MyFirstClass}` (where `${MyFirstClass}` will be replaced by `fieldToIgnore,anotherField`)
 
 ### Operation Modes
 
@@ -90,6 +93,8 @@ Adds JPA annotations to existing Java entity files:
 ```bash
 java -jar target/hbm2java-1.0-SNAPSHOT.jar ./hbm-files ./src/main/java --annotateExisting
 ```
+
+NOTE: If target class is not found searching recursively from the base input folder, a new entity class will be generated in the root of the output folder.
 
 ### Examples
 
@@ -116,12 +121,12 @@ The tool follows a modular architecture with clear separation of concerns:
 - **`HbmParser`**: XML parsing and entity model creation
 - **`AnnotationBuilder`**: JPA annotation generation
 - **`AnnotationApplier`**: Integration of annotations into existing files
-- **`EntityGenerator`**: New entity file generation
+- **`EntityGenerator`**: New entity for file generation
 
 ### Processing Flow
 
 1. **Input Validation**: Validates command-line arguments and directory structure
-2. **File Discovery**: Locates all `*.hbm.xml` files in the input directory
+2. **File Discovery**: Locates all `*.hbm.xml` files in the input directory recursively
 3. **HBM Parsing**: Parses XML files and creates internal entity models
 4. **Entity Configuration**: Configures inheritance, relationships, and embeddable settings
 5. **Annotation Generation**: Creates appropriate JPA annotations for each entity
@@ -157,7 +162,7 @@ The tool follows a modular architecture with clear separation of concerns:
 - ✅ Secondary tables
 - ✅ Join columns and foreign keys
 
-## Hibernate-Specific Annotations Used by hbm2java
+## Hibernate-Specific Annotations
 
 While `hbm2java` primarily focuses on generating standard JPA annotations, it leverages certain Hibernate-specific annotations to map advanced Hibernate features or to provide more precise control over the mapping when a direct JPA equivalent is insufficient. Below are some of the key Hibernate annotations utilized:
 
@@ -190,6 +195,11 @@ While `hbm2java` primarily focuses on generating standard JPA annotations, it le
 - **Purpose**: Specifies that SQL `UPDATE` statements generated by Hibernate should only include columns whose corresponding properties have actually changed.
 - **Usage by `hbm2java`**: Applied if the HBM mapping specifies `dynamic-update="true"`.
 - **Technical Detail**: This can optimize `UPDATE` operations, especially for tables with many columns or when used with optimistic locking strategies that check all columns. It ensures that only modified data is sent, potentially reducing network traffic and avoiding unnecessary updates on unchanged columns.
+
+### `@org.hibernate.annotations.Proxy`
+- **Purpose**: Indicates whether a class should be proxied by Hibernate at runtime to support lazy loading of the entity instance.
+- **Usage by `hbm2java`**: Applied if the HBM mapping specifies `lazy="true"` at the <class> level.
+- **Technical Detail**: When enabled (`@Proxy(lazy = true)`), Hibernate will generate a subclass proxy for the entity, allowing the actual data to be loaded only when accessed. This supports performance optimization by deferring database access until necessary. For lazy loading to work properly, the class must be non-final, have a no-arg constructor, and rely on getter methods for property access. Disabling the proxy (`@Proxy(lazy = false)`) forces eager loading of the entity.
 
 ### `@org.hibernate.annotations.GenericGenerator(...)`
 - **Purpose**: Provides a flexible way to define custom or extended identifier generation strategies beyond standard JPA generators. **Note: This annotation is superseded by `@org.hibernate.annotations.IdGeneratorType` in modern Hibernate, but remains relevant for HBM conversion.**
@@ -296,7 +306,7 @@ Logging is configured via `log4j2.xml` in the resources directory. You can adjus
 ```
 WARN - No .hbm.xml files found in: /path/to/input
 ```
-**Solution**: Verify the input directory contains `*.hbm.xml` files and the path is correct.
+**Solution**: Verify the input directory (or any subfolder) contains `*.hbm.xml` files and the path is correct.
 
 #### Parsing Errors
 ```
@@ -322,23 +332,3 @@ ERROR - Error processing entity 'EntityName'
 - **Memory Usage**: The tool loads all entities into memory; ensure adequate heap space for large projects
 - **File I/O**: Processing speed depends on disk I/O performance, especially when annotating existing files
 
-## Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with appropriate tests
-4. Ensure all existing tests pass
-5. Submit a pull request with a clear description
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For issues, questions, or contributions:
-- **GitHub Issues**: [Report bugs or request features](https://github.com/marcosene/hbm2Java/issues)
-- **Documentation**: Check this README and inline code documentation
-- **Examples**: See the examples directory for sample HBM files and expected outputs
