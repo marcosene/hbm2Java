@@ -9,6 +9,7 @@ public final class Attributes {
     private Attributes() {}
 
     public static final String ATTR_DEFAULT_CASCADE = "default-cascade";
+    public static final String ATTR_PACKAGE = "package";
     public static final String ATTR_NAME = "name";
     public static final String ATTR_TABLE = "table";
     public static final String ATTR_CLASS = "class";
@@ -47,7 +48,7 @@ public final class Attributes {
 
     static {
         ATTRIBUTES = new HashMap<>();
-        ATTRIBUTES.put(Tags.TAG_HIBERNATE_MAPPING, List.of(ATTR_DEFAULT_CASCADE));
+        ATTRIBUTES.put(Tags.TAG_HIBERNATE_MAPPING, List.of(ATTR_DEFAULT_CASCADE, ATTR_PACKAGE));
         ATTRIBUTES.put(Tags.TAG_CLASS, List.of(ATTR_NAME, ATTR_TABLE, ATTR_DYNAMIC_INSERT, ATTR_DYNAMIC_UPDATE,
                 ATTR_ABSTRACT, ATTR_MUTABLE, ATTR_DISCRIMINATOR_VALUE, ATTR_LAZY));
         ATTRIBUTES.put(Tags.TAG_SUBCLASS, List.of(ATTR_NAME, ATTR_TABLE, ATTR_DYNAMIC_INSERT, ATTR_DYNAMIC_UPDATE,

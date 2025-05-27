@@ -274,7 +274,7 @@ public final class JavaParserUtils {
         // Manually create the constructor declaration (not added yet)
         final ConstructorDeclaration defaultConstructor = new ConstructorDeclaration();
         defaultConstructor.setName(clazz.getName());
-        defaultConstructor.setModifiers(Modifier.Keyword.PROTECTED);
+        defaultConstructor.setModifiers(Modifier.Keyword.PUBLIC);
 
         // Create constructor body with comment
         final BlockStmt body = new BlockStmt();

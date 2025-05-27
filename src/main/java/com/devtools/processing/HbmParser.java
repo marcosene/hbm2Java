@@ -27,6 +27,7 @@ import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
+import com.devtools.utils.ClassNameUtils;
 import com.devtools.utils.DomUtils;
 import com.devtools.utils.FileUtils;
 import com.devtools.utils.HibernateUtils;
@@ -38,9 +39,9 @@ public class HbmParser {
     public List<JpaEntity> parse(final String filePath) throws Exception {
         final List<JpaEntity> entities = new ArrayList<>();
         final Element root = getRootElement(filePath);
-        final String defaultCascade = root.getAttribute(Attributes.ATTR_DEFAULT_CASCADE);
+        final String packageName = root.getAttribute(Attributes.ATTR_PACKAGE);
 
-        parseClasses(root, entities, defaultCascade);
+        parseClasses(root, entities, packageName);
 
         // Check for a hbm.xml file only with queries (no entities)
         if (entities.isEmpty()) {
@@ -48,7 +49,7 @@ public class HbmParser {
             parseQueries(root, queriesEntity);
             if (!queriesEntity.getNamedQueries().isEmpty()) {
                 final String fileName = FileUtils.getFileNameNoExtensions(filePath);
-                queriesEntity.setName(fileName);
+                queriesEntity.setName((StringUtils.isNotBlank(packageName) ? packageName + "." : "") + fileName);
                 entities.add(queriesEntity);
             }
         }
@@ -76,26 +77,30 @@ public class HbmParser {
         return document.getDocumentElement();
     }
 
-    private void parseClasses(final Element root, final List<JpaEntity> entities, final String defaultCascade) {
-        final List<Element> classElements = DomUtils.getChildrenByTag(root, Tags.TAG_CLASS);
+    private void parseClasses(final Element root, final List<JpaEntity> entities,
+            final String packageName) {
+
+        parseClasses(Tags.TAG_CLASS, root, entities, packageName);
+
+        parseClasses(Tags.TAG_SUBCLASS, root, entities, packageName);
+
+        parseClasses(Tags.TAG_UNION_SUBCLASS, root, entities, packageName);
+    }
+
+    private void parseClasses(final String tagName, final Element root, final List<JpaEntity> entities,
+            final String packageName) {
+        final String defaultCascade = root.getAttribute(Attributes.ATTR_DEFAULT_CASCADE);
+        final List<Element> classElements = DomUtils.getChildrenByTag(root, tagName);
         for (final Element classElement : classElements) {
             final JpaEntity jpaEntity = parseEntity(classElement, defaultCascade);
-            entities.add(jpaEntity);
-            parseClasses(classElement, entities, defaultCascade);
-        }
 
-        final List<Element> subclassElements = DomUtils.getChildrenByTag(root, Tags.TAG_SUBCLASS);
-        for (final Element subclassElement : subclassElements) {
-            final JpaEntity jpaEntity = parseEntity(subclassElement, defaultCascade);
+            // If package was mapped in HBM and entity class name has no full name, include the package on it
+            if (StringUtils.isNotBlank(packageName) &&
+                    StringUtils.equals(jpaEntity.getName(), ClassNameUtils.getSimpleClassName(jpaEntity.getName()))) {
+                jpaEntity.setName(packageName + "." + ClassNameUtils.getSimpleClassName(jpaEntity.getName()));
+            }
             entities.add(jpaEntity);
-            parseClasses(subclassElement, entities, defaultCascade);
-        }
-
-        final List<Element> unionSubclassElements = DomUtils.getChildrenByTag(root, Tags.TAG_UNION_SUBCLASS);
-        for (final Element unionSubclassElement : unionSubclassElements) {
-            final JpaEntity jpaEntity = parseEntity(unionSubclassElement, defaultCascade);
-            entities.add(jpaEntity);
-            parseClasses(unionSubclassElement, entities, defaultCascade);
+            parseClasses(classElement, entities, packageName);
         }
     }
 
