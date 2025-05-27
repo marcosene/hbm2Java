@@ -65,9 +65,11 @@ java -jar target/hbm2java-1.0-SNAPSHOT.jar <inputFolder> <outputFolder> [--annot
 | `outputFolder` | Yes | Target directory for generated files or base search folder for existing files |
 | `--annotateExisting` | No | Flag to annotate existing Java files instead of generating new ones           |
 
-### Ignoring Specific Fields
+### Ignoring Duplicated Fields
 
-The tool allows ignoring specific fields during JPA annotation by creating and configuring an `ignore.properties` file in the `src/main/resources` directory.
+If you have super-class fields duplicated in multiple inheritors HBM mappings files with the same settings, the tool can ignore them during JPA annotation by creating and configuring an `ignore.properties` file in the `src/main/resources` directory.
+
+This could be `carefully` used in some special case you don't need one or more field to be annotated.
 
 The format for entries in `ignore.properties` is: `simpleClassName={field1,field2,...}`.
 
