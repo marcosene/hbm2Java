@@ -1,5 +1,7 @@
 package com.devtools.model.jpa;
 
+import static org.apache.commons.lang3.StringUtils.trim;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -29,13 +31,13 @@ public abstract class JpaAbstract {
 
     public void setType(final String type) {
         if (StringUtils.isNotBlank(type)) {
-            this.type = type;
+            this.type = trim(type);
         }
     }
 
     public void setName(final String name) {
         if (StringUtils.isNotBlank(name)) {
-            this.name = name;
+            this.name = trim(name);
         }
     }
 
@@ -54,7 +56,7 @@ public abstract class JpaAbstract {
     }
 
     public void addTypeParam(final String key, final String value) {
-        typeParams.put(key, value);
+        typeParams.put(trim(key), trim(value));
     }
 
     public void addAnnotation(final String annotation) {

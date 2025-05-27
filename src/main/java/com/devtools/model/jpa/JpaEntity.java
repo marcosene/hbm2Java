@@ -1,5 +1,7 @@
 package com.devtools.model.jpa;
 
+import static org.apache.commons.lang3.StringUtils.trim;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -55,19 +57,19 @@ public class JpaEntity extends JpaAbstract {
 
     public void setDefaultCascade(final String defaultCascade) {
         if (StringUtils.isNotBlank(defaultCascade)) {
-            this.defaultCascade = defaultCascade;
+            this.defaultCascade = trim(defaultCascade);
         }
     }
 
     public void setTable(final String table) {
         if (StringUtils.isNotBlank(table)) {
-            this.table = table;
+            this.table = trim(table);
         }
     }
 
     public void setParentTable(final String parentTable) {
         if (StringUtils.isNotBlank(parentTable)) {
-            this.parentTable = parentTable;
+            this.parentTable = trim(parentTable);
         }
     }
 
@@ -77,7 +79,7 @@ public class JpaEntity extends JpaAbstract {
 
     public void setParentClass(final String parentClass) {
         if (StringUtils.isNotBlank(parentClass)) {
-            this.parentClass = parentClass;
+            this.parentClass = trim(parentClass);
         }
     }
 
@@ -89,32 +91,35 @@ public class JpaEntity extends JpaAbstract {
     }
 
     public void setDynamicInsert(final String dynamicInsert) {
-        this.dynamicInsert = StringUtils.isNotBlank(dynamicInsert) && Boolean.parseBoolean(dynamicInsert);
+        this.dynamicInsert = StringUtils.isNotBlank(dynamicInsert) &&
+                Boolean.parseBoolean(trim(dynamicInsert));
     }
 
     public void setDynamicUpdate(final String dynamicUpdate) {
-        this.dynamicUpdate = StringUtils.isNotBlank(dynamicUpdate) && Boolean.parseBoolean(dynamicUpdate);
+        this.dynamicUpdate = StringUtils.isNotBlank(dynamicUpdate) &&
+                Boolean.parseBoolean(trim(dynamicUpdate));
     }
 
     public void setAbstractClass(final String abstractClass) {
-        this.abstractClass = StringUtils.isNotBlank(abstractClass) && Boolean.parseBoolean(abstractClass);
+        this.abstractClass = StringUtils.isNotBlank(abstractClass) &&
+                Boolean.parseBoolean(trim(abstractClass));
     }
 
     public void setMutable(final String mutable) {
         if (StringUtils.isNotBlank(mutable)) {
-            this.mutable = Boolean.parseBoolean(mutable);
+            this.mutable = Boolean.parseBoolean(trim(mutable));
         }
     }
 
     public void setCacheUsage(final String cacheUsage) {
         if (StringUtils.isNotBlank(cacheUsage)) {
-            this.cacheUsage = cacheUsage;
+            this.cacheUsage = trim(cacheUsage);
         }
     }
 
     public void setLazy(final String lazy) {
         if (StringUtils.isNotBlank(lazy)) {
-            this.lazy = Boolean.parseBoolean(lazy);
+            this.lazy = Boolean.parseBoolean(trim(lazy));
         }
     }
 

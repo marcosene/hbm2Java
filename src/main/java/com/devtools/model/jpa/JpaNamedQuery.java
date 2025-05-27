@@ -1,5 +1,7 @@
 package com.devtools.model.jpa;
 
+import static org.apache.commons.lang3.StringUtils.trim;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -19,7 +21,7 @@ public class JpaNamedQuery {
 
     public void setName(final String name) {
         if (StringUtils.isNotBlank(name)) {
-            this.name = name;
+            this.name = trim(name);
         }
     }
 

@@ -1,5 +1,7 @@
 package com.devtools.model.jpa;
 
+import static org.apache.commons.lang3.StringUtils.trim;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -32,54 +34,54 @@ public class JpaRelationship extends JpaAbstract {
 
     public void setCollectionType(final String collectionType) {
         if (StringUtils.isNotBlank(collectionType)) {
-            this.collectionType = collectionType;
+            this.collectionType = trim(collectionType);
         }
     }
 
     public void setFetch(final String fetch) {
         if (StringUtils.isNotBlank(fetch)) {
-            this.fetch = fetch;
+            this.fetch = trim(fetch);
         }
     }
 
     public void setCascade(final String cascade, final String defaultCascade) {
-        this.cascade = StringUtils.isNotBlank(cascade) ? cascade :
-                StringUtils.isNotBlank(defaultCascade) && !"none".equals(defaultCascade) ? defaultCascade : null;
+        this.cascade = StringUtils.isNotBlank(cascade) ? trim(cascade) :
+                StringUtils.isNotBlank(defaultCascade) && !"none".equals(defaultCascade) ? trim(defaultCascade) : null;
     }
 
     public void setOrderBy(final String orderBy) {
         if (StringUtils.isNotBlank(orderBy)) {
-            this.orderBy = orderBy;
+            this.orderBy = trim(orderBy);
         }
     }
 
     public void setListIndex(final String listIndex) {
         if (StringUtils.isNotBlank(listIndex)) {
-            this.listIndex = listIndex;
+            this.listIndex = trim(listIndex);
         }
     }
 
     public void setAccess(final String access) {
         if (StringUtils.isNotBlank(access)) {
-            this.access = access;
+            this.access = trim(access);
         }
     }
 
     public void setTable(final String table) {
         if (StringUtils.isNotBlank(table)) {
-            this.table = table;
+            this.table = trim(table);
         }
     }
 
     public void setMappedBy(final String mappedBy) {
         if (StringUtils.isNotBlank(mappedBy)) {
-            this.mappedBy = mappedBy;
+            this.mappedBy = trim(mappedBy);
         }
     }
 
     public void setCompositeMapKey(final String compositeMapKey) {
         if (StringUtils.isNotBlank(compositeMapKey)) {
-            this.compositeMapKey = compositeMapKey;
+            this.compositeMapKey = trim(compositeMapKey);
         }
     }
 

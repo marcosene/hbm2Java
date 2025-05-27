@@ -1,5 +1,7 @@
 package com.devtools.model.jpa;
 
+import static org.apache.commons.lang3.StringUtils.trim;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -38,43 +40,43 @@ public class JpaColumn extends JpaAbstract {
 
     public void setColumnName(final String columnName) {
         if (StringUtils.isNotBlank(columnName)) {
-            this.columnName = columnName;
+            this.columnName = trim(columnName);
         }
     }
 
     public void setLength(final String length) {
         if (StringUtils.isNotBlank(length)) {
-            this.length = Integer.parseInt(length);
+            this.length = Integer.parseInt(trim(length));
         }
     }
 
     public void setForeignKey(final String foreignKey) {
         if (StringUtils.isNotBlank(foreignKey)) {
-            this.foreignKey = foreignKey;
+            this.foreignKey = trim(foreignKey);
         }
     }
 
     public void setIndex(final String index) {
         if (StringUtils.isNotBlank(index)) {
-            this.index = index;
+            this.index = trim(index);
         }
     }
 
     public void setDefaultValue(final String defaultValue) {
         if (StringUtils.isNotBlank(defaultValue)) {
-            this.defaultValue = defaultValue;
+            this.defaultValue = trim(defaultValue);
         }
     }
 
     public void setUniqueConstraint(final String uniqueConstraint) {
         if (StringUtils.isNotBlank(uniqueConstraint)) {
-            this.uniqueConstraint = uniqueConstraint;
+            this.uniqueConstraint = trim(uniqueConstraint);
         }
     }
 
     public void setColumnDefinition(final String columnDefinition) {
         if (StringUtils.isNotBlank(columnDefinition)) {
-            this.columnDefinition = columnDefinition;
+            this.columnDefinition = trim(columnDefinition);
         }
     }
 }

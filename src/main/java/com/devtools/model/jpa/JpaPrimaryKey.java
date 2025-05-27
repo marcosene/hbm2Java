@@ -1,5 +1,7 @@
 package com.devtools.model.jpa;
 
+import static org.apache.commons.lang3.StringUtils.trim;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -27,13 +29,13 @@ public class JpaPrimaryKey extends JpaAbstract {
 
     public void setColumnName(final String columnName) {
         if (StringUtils.isNotBlank(columnName)) {
-            this.columnName = columnName;
+            this.columnName = trim(columnName);
         }
     }
 
     public void setGeneratorType(final String generatorType) {
         if (StringUtils.isNotBlank(generatorType)) {
-            this.generatorType = generatorType;
+            this.generatorType = trim(generatorType);
         }
     }
 
