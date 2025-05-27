@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Stream;
 
+import javax.persistence.InheritanceType;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -78,6 +80,9 @@ public class ConversionProcessor {
         LOG.info("Successfully parsed " + jpaEntityMap.size() + " entities");
 
         configureEntitySettings(jpaEntityMap);
+
+        checkInconsistencies(jpaEntityMap);
+
         generateOrAnnotateEntities(jpaEntityMap, outputFolder, annotateExisting);
     }
 
@@ -181,24 +186,24 @@ public class ConversionProcessor {
                 jpaEntity.setParentTable(parentEntity.getTable());
             }
 
-            final String inheritanceStrategy = determineInheritanceStrategy(jpaEntity, parentEntity);
+            final InheritanceType inheritanceStrategy = determineInheritanceStrategy(jpaEntity, parentEntity);
             if (inheritanceStrategy != null) {
                 parentEntity.setInheritance(inheritanceStrategy);
             }
         }
     }
 
-    private String determineInheritanceStrategy(final JpaEntity childEntity, final JpaEntity parentEntity) {
+    private InheritanceType determineInheritanceStrategy(final JpaEntity childEntity, final JpaEntity parentEntity) {
         if (childEntity.isSecondTable()) {
-            return "JOINED";
+            return InheritanceType.JOINED;
         }
 
         if (StringUtils.isNotBlank(childEntity.getTable())) {
-            return "TABLE_PER_CLASS";
+            return InheritanceType.TABLE_PER_CLASS;
         }
 
         // Default to SINGLE_TABLE if no inheritance strategy is already set
-        return parentEntity.getInheritance() == null ? "SINGLE_TABLE" : null;
+        return parentEntity.getInheritance() == null ? InheritanceType.SINGLE_TABLE : null;
     }
 
     private void configureForeignKeyRelationships(final Map<String, JpaEntity> jpaEntityMap) {
@@ -260,6 +265,16 @@ public class ConversionProcessor {
             // Add annotations to the embeddable classes
             for (final JpaEntity embeddable : jpaEntity.getEmbeddedEntities()) {
                 jpaEntityMap.put(embeddable.getSimpleName(), embeddable);
+            }
+        }
+    }
+
+    private void checkInconsistencies(final Map<String, JpaEntity> jpaEntityMap) {
+        for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
+            if (InheritanceType.TABLE_PER_CLASS.equals(jpaEntity.getInheritance()) && jpaEntity.getDiscriminator() != null) {
+                LOG.warn(String.format("Inconsistency found on %s mapping: discriminator defined along a "
+                        + "table per class definition. Discriminator annotations will be skipped", jpaEntity.getSimpleName()));
+                jpaEntity.setDiscriminator(null);
             }
         }
     }

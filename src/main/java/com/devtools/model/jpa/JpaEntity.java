@@ -8,6 +8,8 @@ import lombok.Setter;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.persistence.InheritanceType;
+
 import org.apache.commons.lang3.StringUtils;
 
 import com.devtools.utils.ClassNameUtils;
@@ -20,7 +22,7 @@ public class JpaEntity extends JpaAbstract {
     private String table;
     private String parentTable;
     private String parentClass;
-    private String inheritance;
+    private InheritanceType inheritance;
     private JpaDiscriminator discriminator;
     private boolean dynamicInsert = false;
     private boolean dynamicUpdate = false;

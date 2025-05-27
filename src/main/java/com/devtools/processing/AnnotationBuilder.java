@@ -5,6 +5,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.persistence.InheritanceType;
+
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -167,9 +169,9 @@ public class AnnotationBuilder {
                 jpaEntity.addAnnotation(discriminatorAnnotation.toString());
             }
         }
-        if (jpaEntity.getInheritance() != null && !"SINGLE_TABLE".equalsIgnoreCase(jpaEntity.getInheritance())) {
+        if (jpaEntity.getInheritance() != null && !InheritanceType.SINGLE_TABLE.equals(jpaEntity.getInheritance())) {
             jpaEntity.addAnnotation("@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType."
-                    + jpaEntity.getInheritance() + ")");
+                    + jpaEntity.getInheritance().name() + ")");
         }
     }
 
