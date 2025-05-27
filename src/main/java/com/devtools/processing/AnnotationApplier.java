@@ -129,7 +129,7 @@ public class AnnotationApplier {
             // Mark this class as processed
             PROCESSED_CLASSES.put(simpleClassName, parentSimpleClassName);
 
-            if (hasPendingFields(entity) && !PROCESSED_CLASSES.containsKey(parentSimpleClassName)) {
+            if (hasPendingFields(entity)) {
                 writeAnnotations(entity, parentFullClassName, true);
             }
 
@@ -157,6 +157,8 @@ public class AnnotationApplier {
             if (primaryKey != null && !primaryKey.isProcessed()) {
                 insertPrimaryKey(primaryKey, clazz, cu);
             }
+
+            JavaParserUtils.addDefaultConstructorIfNeeded(clazz);
         }
 
         Files.write(cu.getStorage().orElseThrow().getPath(), cu.toString().getBytes());

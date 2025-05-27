@@ -23,6 +23,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.comments.LineComment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.Expression;
@@ -30,6 +31,7 @@ import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ThisExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
+import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
@@ -250,5 +252,44 @@ public final class JavaParserUtils {
         // Insert methods at the correct position
         clazz.getMembers().add(insertIndex, getter);
         clazz.getMembers().add(insertIndex + 1, setter);
+    }
+
+    public static void addDefaultConstructorIfNeeded(final ClassOrInterfaceDeclaration clazz) {
+        // If no constructors, Java provides default no-arg, so no action needed
+        if (clazz.getConstructors().isEmpty()) {
+            return;
+        }
+
+        // Check if no-arg constructor exists
+        final boolean hasNoArgConstructor = clazz.getConstructors().stream()
+                .anyMatch(ctor -> ctor.getParameters().isEmpty());
+
+        if (hasNoArgConstructor) {
+            return;
+        }
+
+        LOG.warn("Default constructor (no args) not found in " + clazz.getNameAsString() +
+                ". Creating one for reflection instantiation required by hibernate");
+
+        // Manually create the constructor declaration (not added yet)
+        final ConstructorDeclaration defaultConstructor = new ConstructorDeclaration();
+        defaultConstructor.setName(clazz.getName());
+        defaultConstructor.setModifiers(Modifier.Keyword.PROTECTED);
+
+        // Create constructor body with comment
+        final BlockStmt body = new BlockStmt();
+        body.addOrphanComment(new LineComment(" required for hibernate reflection instantiation"));
+        defaultConstructor.setBody(body);
+
+        // Find the insertion index after last field declaration
+        int insertIndex = 0;
+        for (int i = 0; i < clazz.getMembers().size(); i++) {
+            if (clazz.getMember(i).isFieldDeclaration()) {
+                insertIndex = i + 1;
+            }
+        }
+
+        // Insert constructor at the right position
+        clazz.getMembers().add(insertIndex, defaultConstructor);
     }
 }
