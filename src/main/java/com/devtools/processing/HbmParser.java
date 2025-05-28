@@ -211,6 +211,7 @@ public class HbmParser {
                     case "seqhilo":
                     case "identity":
                     case "foreign":
+                    case "assigned":
                         primaryKey.setGeneratorType(generatorClass.toUpperCase());
                         break;
 

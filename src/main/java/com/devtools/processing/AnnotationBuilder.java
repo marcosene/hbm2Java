@@ -258,9 +258,9 @@ public class AnnotationBuilder {
     private void buildPrimaryKey(final JpaEntity entityDef) {
         final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
 
-        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorType())) {
-            jpaPrimaryKey.addAnnotation("@javax.persistence.Id");
+        jpaPrimaryKey.addAnnotation("@javax.persistence.Id");
 
+        if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorType())) {
             switch (entityDef.getPrimaryKey().getGeneratorType()) {
             case "SEQUENCE":
                 buildSequenceGenerator(entityDef);
@@ -274,12 +274,8 @@ public class AnnotationBuilder {
             case "FOREIGN":
                 buildForeignGenerator(entityDef);
                 break; // it will be defined in the OneToOne
-            case "GENERATOR":
-                if (StringUtils.isNotBlank(entityDef.getPrimaryKey().getGeneratorName())) {
-                    jpaPrimaryKey.addAnnotation(
-                            "@javax.persistence.GeneratedValue(generator = \"" + PREFIX_GENERATOR +
-                                    entityDef.getPrimaryKey().getGeneratorName() + "\")");
-                }
+            case "ASSIGNED":
+                // No generator, ID will be assigned
                 break;
             default:
                 jpaPrimaryKey.addAnnotation("@javax.persistence.GeneratedValue(generator = \"" +
