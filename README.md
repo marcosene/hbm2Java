@@ -4,6 +4,11 @@
 **hbm2Java** is a Java command-line tool designed to convert Hibernate mapping files (`*.hbm.xml`) in a folder (and all of its subfolders recursively) into Java classes annotated with JPA annotations.
 This tool facilitates the migration from legacy Hibernate XML configurations to the modern JPA annotation-based approach, supporting both new file generation and annotation of existing Java classes.
 
+## IMPORTANT NOTE:
+- NOT ALL HBM MAPPING TAGS OR ATTRIBUTES WERE IMPLEMENTED IN THE PARSER.
+- They were developed as needed.
+- Contributions are welcome to implement new ones or new features
+
 ## Features
 
 ### Core Functionality
