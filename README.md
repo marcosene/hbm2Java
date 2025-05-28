@@ -168,13 +168,6 @@ The tool follows a modular architecture with clear separation of concerns:
 
 While `hbm2java` primarily focuses on generating standard JPA annotations, it leverages certain Hibernate-specific annotations to map advanced Hibernate features or to provide more precise control over the mapping when a direct JPA equivalent is insufficient. Below are some of the key Hibernate annotations utilized:
 
-### `@org.hibernate.annotations.Table(appliesTo = "...", optional = false)`
-- **Purpose**: Used in older Hibernate versions to specify additional options for a secondary table. **Note: This annotation is deprecated in modern Hibernate.**
-- **Usage by `hbm2java`**: `hbm2java` might generate this for older HBM files that define secondary table mappings with specific Hibernate configurations not covered by early JPA `@SecondaryTable` versions.
-    - `appliesTo`: Specifies the logical name of the secondary table declaration within the HBM.
-    - `optional = false`: Corresponds to HBM's `optional="false"` on a `<join>`, indicating that a row must exist in the secondary table for the entity. This influences join types (inner join) and data integrity expectations.
-- **Modern JPA Equivalent**: `@jakarta.persistence.SecondaryTable` and `@jakarta.persistence.SecondaryTables` are the standard JPA way to map an entity to multiple tables. `hbm2java` will prefer these where possible.
-
 ### `@org.hibernate.annotations.Cache(usage = ...)`
 - **Purpose**: Configures the second-level caching strategy for an entity or collection.
 - **Usage by `hbm2java`**: Translates caching configurations from HBM files (`<cache usage="..."/>`) into this annotation.
