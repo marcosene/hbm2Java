@@ -188,7 +188,16 @@ public class ConversionProcessor {
 
             final InheritanceType inheritanceStrategy = determineInheritanceStrategy(jpaEntity, parentEntity);
             if (inheritanceStrategy != null) {
-                parentEntity.setInheritance(inheritanceStrategy);
+                if (parentEntity.getInheritance() == null) {
+                    parentEntity.setInheritance(inheritanceStrategy);
+                } else {
+                    if (inheritanceStrategy != parentEntity.getInheritance()) {
+                        LOG.error(String.format("Inconsistency found on %s mapping: inheritance strategy on parent %s "
+                                        + "was previsously set as %s, now it's trying to change to %s",
+                                jpaEntity.getSimpleName(), parentEntity.getSimpleName(),
+                                parentEntity.getInheritance(), inheritanceStrategy));
+                    }
+                }
             }
         }
     }
@@ -204,8 +213,8 @@ public class ConversionProcessor {
             return InheritanceType.TABLE_PER_CLASS;
         }
 
-        // Default to SINGLE_TABLE if no inheritance strategy is already set
-        return parentEntity.getInheritance() == null ? InheritanceType.SINGLE_TABLE : null;
+        // Default to SINGLE_TABLE
+        return InheritanceType.SINGLE_TABLE;
     }
 
     private void configureForeignKeyRelationships(final Map<String, JpaEntity> jpaEntityMap) {
