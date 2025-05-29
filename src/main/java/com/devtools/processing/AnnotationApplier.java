@@ -84,8 +84,9 @@ public class AnnotationApplier {
             entity.getImports().forEach(cu::addImport);
 
             // Add Entity annotations to the class
-            JavaParserUtils.addAnnotations(entity.getAnnotations(), clazz);
-            entityChanged.set(true);
+            if (JavaParserUtils.addAnnotations(entity.getAnnotations(), clazz)) {
+                entityChanged.set(true);
+            }
         }
 
         final List<JpaAbstract> allFields = getAllFields(entity);
@@ -203,14 +204,17 @@ public class AnnotationApplier {
     private void annotateField(final String simpleClassName, final FieldDeclaration field, final JpaAbstract jpaElement,
             final CompilationUnit cu, final AtomicBoolean entityChanged) {
 
-        addTypeAnnotationIfNeeded(field, jpaElement);
+        if (addTypeAnnotationIfNeeded(field, jpaElement)) {
+            entityChanged.set(true);
+        }
 
         for (final String importString : jpaElement.getImports()) {
             cu.addImport(importString);
         }
-        JavaParserUtils.addAnnotations(jpaElement.getAnnotations(), field);
+        if (JavaParserUtils.addAnnotations(jpaElement.getAnnotations(), field)) {
+            entityChanged.set(true);
+        }
         jpaElement.setProcessed(true);
-        entityChanged.set(true);
 
         // Cache processed fields to improve performance
         final Set<String> classProcessedFields;
@@ -223,7 +227,7 @@ public class AnnotationApplier {
         classProcessedFields.add(jpaElement.getName());
     }
 
-    private static void addTypeAnnotationIfNeeded(final FieldDeclaration field, final JpaAbstract jpaElement) {
+    private static boolean addTypeAnnotationIfNeeded(final FieldDeclaration field, final JpaAbstract jpaElement) {
         if (jpaElement.getType() != null) {
             final String annotationType = HibernateUtils.mapHibernateTypeToJava(jpaElement.getType());
             final String fieldType = ClassNameUtils.getSimpleClassName(
@@ -248,8 +252,10 @@ public class AnnotationApplier {
                 }
                 typeAnnotation.append(")");
                 JavaParserUtils.addAnnotations(List.of(typeAnnotation.toString()), field);
+                return true;
             }
         }
+        return false;
     }
 
     private void insertPrimaryKey(final JpaPrimaryKey primaryKey,

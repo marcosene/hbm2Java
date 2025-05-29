@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -158,6 +159,8 @@ public class ConversionProcessor {
         
         // Process foreign key inverse relationships
         configureForeignKeyRelationships(jpaEntityMap);
+
+        changeOrderByColumnByField(jpaEntityMap);
         
         // Process embeddable settings for composite columns
         configureEmbeddable(jpaEntityMap);
@@ -213,8 +216,7 @@ public class ConversionProcessor {
             return InheritanceType.TABLE_PER_CLASS;
         }
 
-        // Default to SINGLE_TABLE
-        return InheritanceType.SINGLE_TABLE;
+        return parentEntity.getDiscriminator() != null ? InheritanceType.SINGLE_TABLE : null;
     }
 
     private void configureForeignKeyRelationships(final Map<String, JpaEntity> jpaEntityMap) {
@@ -253,6 +255,52 @@ public class ConversionProcessor {
                 break;
             }
         }
+    }
+
+    private void changeOrderByColumnByField(final Map<String, JpaEntity> jpaEntityMap) {
+        for (final JpaEntity jpaEntity : jpaEntityMap.values()) {
+            for (final JpaRelationship relationship : jpaEntity.getRelationships()) {
+                final String rawOrderBy = relationship.getOrderBy();
+                if (StringUtils.isNotBlank(rawOrderBy)) {
+
+                    final JpaEntity inverseEntity = jpaEntityMap.get(ClassNameUtils.getSimpleClassName(relationship.getReturnType()));
+                    if (inverseEntity == null) continue;
+
+                    // Normalize: lowercase and trim
+                    String lower = rawOrderBy.trim().toLowerCase();
+                    String direction = "";
+
+                    // Check if ends with asc/desc
+                    if (lower.endsWith(" asc")) {
+                        direction = " asc";
+                        lower = lower.substring(0, lower.length() - 4).trim();
+                    } else if (lower.endsWith(" desc")) {
+                        direction = " desc";
+                        lower = lower.substring(0, lower.length() - 5).trim();
+                    }
+
+                    // Split by comma and trim each column
+                    final String[] dbColumns = lower.split("\\s*,\\s*");
+                    final List<String> fieldNames = new ArrayList<>();
+
+                    for (final String dbColumn : dbColumns) {
+                        for (final JpaColumn refColumn : inverseEntity.getColumns()) {
+                            if (refColumn.getColumnName().equalsIgnoreCase(dbColumn)) {
+                                fieldNames.add(refColumn.getName());
+                                break;
+                            }
+                        }
+                    }
+
+                    // Only update if we matched all columns
+                    if (fieldNames.size() == dbColumns.length) {
+                        final String newOrderBy = String.join(", ", fieldNames) + direction;
+                        relationship.setOrderBy(newOrderBy);
+                    }
+                }
+            }
+        }
+
     }
 
     private void configureEmbeddable(final Map<String, JpaEntity> jpaEntityMap) {

@@ -5,8 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.persistence.InheritanceType;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -172,7 +170,7 @@ public class AnnotationBuilder {
                 jpaEntity.addAnnotation(discriminatorAnnotation.toString());
             }
         }
-        if (jpaEntity.getInheritance() != null && !InheritanceType.SINGLE_TABLE.equals(jpaEntity.getInheritance())) {
+        if (jpaEntity.getInheritance() != null) {
             jpaEntity.addAnnotation("@javax.persistence.Inheritance(strategy = javax.persistence.InheritanceType."
                     + jpaEntity.getInheritance().name() + ")");
         }
@@ -322,10 +320,8 @@ public class AnnotationBuilder {
     private static void buildSeqHiloGenerator(final JpaEntity entityDef) {
         final JpaPrimaryKey jpaPrimaryKey = entityDef.getPrimaryKey();
 
-        final String sequenceAnnotation =
-                "@javax.persistence.GeneratedValue(strategy = javax.persistence.GenerationType.SEQUENCE"
-                + ", generator = \"" + PREFIX_GENERATOR + entityDef.getSimpleName() + "\""
-                + ")";
+        final String sequenceAnnotation = "@javax.persistence.GeneratedValue(generator = \"" +
+                PREFIX_GENERATOR + entityDef.getSimpleName() + "\"" + ")";
         jpaPrimaryKey.addAnnotation(sequenceAnnotation);
 
         final StringBuilder generatorAnnotation = new StringBuilder();
@@ -480,9 +476,8 @@ public class AnnotationBuilder {
             if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
                 final JpaColumn referencedColumn = relationship.getReferencedColumns().get(0);
                 joinColumn.append("@javax.persistence.JoinColumn(");
-                if (StringUtils.isBlank(entityDef.getTable()) &&
-                    StringUtils.isNotBlank(entityDef.getParentTable())) {
-                    joinColumn.append("table = \"").append(entityDef.getParentTable()).append("\", ");
+                if (StringUtils.isNotBlank(entityDef.getSecondTable())) {
+                    joinColumn.append("table = \"").append(entityDef.getSecondTable()).append("\", ");
                 }
                 joinColumn.append("name = \"").append(referencedColumn.getColumnName()).append("\"")
                         .append(!referencedColumn.isUpdatable() ? ", updatable = false" : "")

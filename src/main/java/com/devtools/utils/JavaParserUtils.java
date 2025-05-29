@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -19,10 +20,12 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Modifier;
+import com.github.javaparser.ast.body.BodyDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.comments.LineComment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
@@ -178,7 +181,8 @@ public final class JavaParserUtils {
                 .getAnnotation(0);
     }
 
-    public static void addAnnotations(final List<String> newAnnotations, final NodeWithAnnotations<?> node) {
+    public static boolean addAnnotations(final List<String> newAnnotations, final NodeWithAnnotations<?> node) {
+        boolean added = false;
         for (final String annotationString : newAnnotations) {
             final AnnotationExpr annotation = toAnnotationExpr(annotationString);
             final String annotationName = annotation.getNameAsString();
@@ -189,8 +193,10 @@ public final class JavaParserUtils {
 
             if (!alreadyAnnotated) {
                 node.addAnnotation(annotation);
+                added = true;
             }
         }
+        return added;
     }
 
     // This method returns the generic type if present, otherwise the base type
@@ -214,13 +220,27 @@ public final class JavaParserUtils {
     }
 
     public static void createGetterAndSetter(final ClassOrInterfaceDeclaration clazz, final String fieldName) {
-        // Find the last field or constructor
-        int insertIndex = 0;
+        final int insertIndex;
+        Integer indexFirstMethod = null;
+        int lastConstructorIndex = -1;
+
         for (int i = 0; i < clazz.getMembers().size(); i++) {
-            if (clazz.getMember(i) instanceof FieldDeclaration ||
-                clazz.getMember(i) instanceof ConstructorDeclaration) {
-                insertIndex = i + 1; // Position after last field or constructor
+            final BodyDeclaration<?> member = clazz.getMember(i);
+
+            if (member instanceof ConstructorDeclaration) {
+                lastConstructorIndex = i;
+            } else if (indexFirstMethod == null && member instanceof MethodDeclaration) {
+                indexFirstMethod = i;
             }
+        }
+
+        // Insert after last constructor, if any
+        if (lastConstructorIndex != -1) {
+            insertIndex = lastConstructorIndex + 1;
+        } else {
+            // Else insert before first method (if any)
+            // Fallback: insert at end
+            insertIndex = Objects.requireNonNullElseGet(indexFirstMethod, () -> clazz.getMembers().size());
         }
 
         // Add getter and setter methods for a specific field
@@ -240,7 +260,10 @@ public final class JavaParserUtils {
                 .setModifiers(Modifier.Keyword.PUBLIC)
                 .setType(new VoidType())
                 .setName("set" + Utils.capitalize(fieldName))
-                .addParameter(fieldType, fieldName)
+                .addParameter(new Parameter()
+                        .setType(fieldType)
+                        .setName(fieldName)
+                        .setFinal(true))
                 .setBody(new com.github.javaparser.ast.stmt.BlockStmt().addStatement(
                         new AssignExpr(
                                 new FieldAccessExpr(new ThisExpr(), fieldName),
