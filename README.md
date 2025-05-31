@@ -139,7 +139,12 @@ The tool follows a modular architecture with clear separation of concerns:
 5. **Annotation Generation**: Creates appropriate JPA annotations for each entity
 6. **Output Generation**: Either generates new files or annotates existing ones
 
+### Detailed HBM to JPA Mapping Guide
+For a comprehensive guide on how specific HBM XML elements and attributes are mapped to JPA and Hibernate annotations by this tool, please refer to the [HBM to JPA Mapping Guide](HBM_to_JPA_Mapping_Guide.md).
+
 ## Supported Hibernate Features
+
+This tool aims to support a wide array of Hibernate HBM features. Below is a list of features generally covered. For HBM elements or attributes not explicitly mentioned, behavior might be undefined, and the tool will log errors if it encounters unimplemented tags or attributes during parsing (see IMPORTANT NOTE above).
 
 ### Entity Mappings
 - ✅ Basic entity mappings (`<class>`)
@@ -163,7 +168,7 @@ The tool follows a modular architecture with clear separation of concerns:
 - ✅ Fetch strategies (LAZY/EAGER)
 
 ### Advanced Features
-- ✅ Composite primary keys
+- ✅ Composite primary keys (supported via derived identifiers with `<generator class="foreign">` or by using component/embedded classes for the ID. Direct parsing of `<composite-id>` tags may have limitations. See the [Detailed HBM to JPA Mapping Guide](HBM_to_JPA_Mapping_Guide.md) for more details on ID generation strategies.)
 - ✅ Embeddable components
 - ✅ Named queries
 - ✅ Secondary tables
