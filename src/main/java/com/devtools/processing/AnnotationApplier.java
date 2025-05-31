@@ -237,7 +237,7 @@ public class AnnotationApplier {
             // except when it's a component (with @AttributeOverrides annotation)
             if (StringUtils.isNotBlank(fieldType) &&
                 !HibernateUtils.isPrimitiveType(fieldType) && !annotationType.equals(fieldType) &&
-                jpaElement.getAnnotations().stream().noneMatch(ann -> ann.contains("AttributeOverrides"))) {
+                jpaElement.getAnnotations().stream().noneMatch(ann -> ann.contains("AttributeOverrides") || ann.contains("Columns"))) {
                 final StringBuilder typeAnnotation = new StringBuilder();
                 typeAnnotation.append("@org.hibernate.annotations.Type(type = \"").append(jpaElement.getType())
                         .append("\"");

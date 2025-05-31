@@ -308,8 +308,11 @@ public class ConversionProcessor {
         for (final JpaEntity jpaEntity : new HashSet<>(jpaEntityMap.values())) {
             // Set embeddable to composite-columns class
             for (final JpaCompositeColumn compositeColumn : jpaEntity.getCompositeColumns()) {
-                final String embeddableClassName = ClassNameUtils.getSimpleClassName(compositeColumn.getReturnType());
-                processCompositeColumns(jpaEntityMap, embeddableClassName, compositeColumn.getColumns(), false);
+                if (StringUtils.isNotBlank(compositeColumn.getType())) {
+                    final String embeddableClassName = ClassNameUtils.getSimpleClassName(
+                            compositeColumn.getReturnType());
+                    processCompositeColumns(jpaEntityMap, embeddableClassName, compositeColumn.getColumns(), false);
+                }
             }
 
             // Set embeddable to composite-map-key class and annotate their fields

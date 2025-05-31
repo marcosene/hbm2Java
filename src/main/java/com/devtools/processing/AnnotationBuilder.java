@@ -17,6 +17,7 @@ import com.devtools.model.jpa.JpaEntity;
 import com.devtools.model.jpa.JpaNamedQuery;
 import com.devtools.model.jpa.JpaPrimaryKey;
 import com.devtools.model.jpa.JpaRelationship;
+import com.devtools.utils.ClassNameUtils;
 import com.devtools.utils.HibernateUtils;
 import com.devtools.utils.JavaParserUtils;
 import com.devtools.utils.Utils;
@@ -428,14 +429,27 @@ public class AnnotationBuilder {
     private void buildAttributeOverrides(final JpaEntity entityDef) {
         for (final JpaCompositeColumn compositeColumn : entityDef.getCompositeColumns()) {
             final StringBuilder compositeAnnotation = new StringBuilder();
-            compositeAnnotation.append("@javax.persistence.AttributeOverrides({\n");
+            if (StringUtils.isNotBlank(compositeColumn.getType())) {
+                final String typeDef = Utils.toCamelCase(ClassNameUtils.getSimpleClassName(compositeColumn.getType()));
+                entityDef.addAnnotation("@org.hibernate.annotations.TypeDef(name = \"" + typeDef + "\", typeClass = " +
+                        compositeColumn.getType() + ".class)");
+                compositeColumn.addAnnotation("@org.hibernate.annotations.Type(type = \"" + typeDef + "\")");
+                compositeAnnotation.append("@org.hibernate.annotations.Columns(columns = {\n");
 
-            for (final JpaColumn column : compositeColumn.getColumns()) {
-                compositeAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
-                compositeAnnotation.append(Utils.toCamelCase(column.getColumnName()));
-                compositeAnnotation.append("\", column = ");
-                compositeAnnotation.append(buildColumn(column));
-                compositeAnnotation.append("),\n");
+                for (final JpaColumn column : compositeColumn.getColumns()) {
+                    compositeAnnotation.append(buildColumn(column));
+                    compositeAnnotation.append(",\n");
+                }
+            } else {
+                compositeAnnotation.append("@javax.persistence.AttributeOverrides({\n");
+
+                for (final JpaColumn column : compositeColumn.getColumns()) {
+                    compositeAnnotation.append("        @javax.persistence.AttributeOverride(name = \"");
+                    compositeAnnotation.append(Utils.toCamelCase(column.getColumnName()));
+                    compositeAnnotation.append("\", column = ");
+                    compositeAnnotation.append(buildColumn(column));
+                    compositeAnnotation.append("),\n");
+                }
             }
             compositeAnnotation.append("    })");
 
@@ -560,8 +574,19 @@ public class AnnotationBuilder {
                     if (!relationship.isOptional()) {
                         relationshipAnnotation.append("optional = false, ");
                     }
-                    if (StringUtils.isNotBlank(relationship.getMappedBy())) {
-                        relationshipAnnotation.append("mappedBy = \"").append(relationship.getMappedBy()).append("\", ");
+                    if (joinColumn.isEmpty()) {
+                        String mappedBy = relationship.getMappedBy();
+                        if (StringUtils.isBlank(mappedBy)) {
+                            mappedBy = JavaParserUtils.findVariableNameByType(outputFolder,
+                                    relationship.getReturnType(), entityDef.getSimpleName());
+                            if (StringUtils.isBlank(mappedBy)) {
+                                mappedBy = Utils.toCamelCase(entityDef.getSimpleName());
+                                LOG.warn(String.format(
+                                        "Please check the correct name of (mappedBy = \"%s\") in the field '%s' of %s",
+                                        mappedBy, relationship.getName(), entityDef.getSimpleName()));
+                            }
+                        }
+                        relationshipAnnotation.append("mappedBy = \"").append(mappedBy).append("\", ");
                     }
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
@@ -632,6 +657,12 @@ public class AnnotationBuilder {
                         relationship.addAnnotation(joinAnnotation.toString());
                     }
                     break;
+            }
+
+            // Cascade Types
+            final String hibernateCascadeTypes = HibernateUtils.convertHibernateCascadeTypes(relationship.getCascade());
+            if (!hibernateCascadeTypes.isEmpty()) {
+                relationship.addAnnotation("@org.hibernate.annotations.Cascade({" + hibernateCascadeTypes + "})");
             }
 
             if (StringUtils.isNotBlank(relationship.getOrderBy())) {

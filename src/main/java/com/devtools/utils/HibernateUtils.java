@@ -146,23 +146,70 @@ public final class HibernateUtils {
                         cascadeTypes.append("javax.persistence.CascadeType.REMOVE, ");
                         break;
                     case "all":
+                    case "all-delete-orphan":
                         cascadeTypes.append("javax.persistence.CascadeType.ALL, ");
                         break;
-                    case "all-delete-orphan":
-                        cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.REMOVE, ");
-                        cascadeTypes.append("javax.persistence.CascadeType.DETACH, ");
-                        break;
                     case "save":
+                    case "persist":
                         cascadeTypes.append("javax.persistence.CascadeType.PERSIST, ");
                         break;
                     case "update":
+                    case "merge":
                         cascadeTypes.append("javax.persistence.CascadeType.MERGE, ");
                         break;
                     default:
                         // Handle unknown cascade types if necessary
                         break;
+                }
+            }
+
+            // Remove the trailing comma and space
+            if (!cascadeTypes.isEmpty()) {
+                cascadeTypes.setLength(cascadeTypes.length() - 2);
+            }
+        }
+
+        return cascadeTypes.toString();
+    }
+
+    /**
+     * Converts Hibernate cascade types to Hibernate @Cascade equivalents.
+     *
+     * @param cascade the Hibernate cascade string (comma-separated values)
+     * @return the corresponding Hibernate CascadeType references as a string
+     */
+    public static String convertHibernateCascadeTypes(final String cascade) {
+        final StringBuilder cascadeTypes = new StringBuilder();
+
+        if (StringUtils.isNotBlank(cascade)) {
+            final String[] cascadeArray = cascade.split(",");
+            for (final String cascadeType : cascadeArray) {
+                // Convert the Hibernate cascade value to JPA CascadeType equivalent
+                switch (cascadeType.trim()) {
+                case "save-update":
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.SAVE_UPDATE, ");
+                    break;
+                case "delete":
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.REMOVE, ");
+                    break;
+                case "all":
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.ALL, ");
+                    break;
+                case "all-delete-orphan":
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.ALL, ");
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.DELETE_ORPHAN, ");
+                    break;
+                case "save":
+                case "persist":
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.PERSIST, ");
+                    break;
+                case "update":
+                case "merge":
+                    cascadeTypes.append("org.hibernate.annotations.CascadeType.MERGE, ");
+                    break;
+                default:
+                    // Handle unknown cascade types if necessary
+                    break;
                 }
             }
 
