@@ -512,7 +512,11 @@ public class AnnotationBuilder {
                         relationship.addAnnotation("@javax.persistence.Access(javax.persistence.AccessType." +
                                 relationship.getAccess().toUpperCase() + ")");
                     }
-                    relationshipAnnotation.append("@javax.persistence.ManyToOne(fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
+                    relationshipAnnotation.append("@javax.persistence.ManyToOne(");
+                    // EAGER fetch is default for OneToMany
+                    if (!"EAGER".equals(fetchType)) {
+                        relationshipAnnotation.append("fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
+                    }
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
                     }
@@ -568,7 +572,7 @@ public class AnnotationBuilder {
                                                    entityDef.getPrimaryKey().getColumnName() + "\")");
                     }
                     relationshipAnnotation.append("@javax.persistence.OneToOne(");
-                    if ("LAZY".equals(fetchType)) {
+                    if (!"EAGER".equals(fetchType)) {
                         relationshipAnnotation.append("fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
                     }
                     if (!relationship.isOptional()) {
@@ -604,7 +608,11 @@ public class AnnotationBuilder {
                     break;
 
                 case ManyToMany:
-                    relationshipAnnotation.append("@javax.persistence.ManyToMany(fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
+                    relationshipAnnotation.append("@javax.persistence.ManyToMany(");
+                    // LAZY fetch is default for ManyToMany
+                    if (!"LAZY".equals(fetchType)) {
+                        relationshipAnnotation.append("fetch = javax.persistence.FetchType.").append(fetchType).append(", ");
+                    }
                     relationshipAnnotation.append(StringUtils.isNotBlank(cascade) ? cascade : "");
                     if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
                         relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
