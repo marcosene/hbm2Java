@@ -144,6 +144,12 @@ public class AnnotationApplier {
             LOG.info("Writing " + (isParentClass ? "parent " : "") + "class: " + simpleClassName);
             writeFileClass(entity, isParentClass, cu, clazz);
         }
+
+        if (!isParentClass) {
+            JavaParserUtils.getNonPersistentFields(cu).forEach(field ->
+                    LOG.warn("Found a non-persistent field \"" + field.getVariable(0).getNameAsString()
+                            + "\" in the class " + simpleClassName + ". Annotate it with @Transient"));
+        }
     }
 
     private void writeFileClass(final JpaEntity entity, final boolean isParentClass,

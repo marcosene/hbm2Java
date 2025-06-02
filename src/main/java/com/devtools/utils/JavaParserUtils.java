@@ -9,8 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -31,6 +33,7 @@ import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.expr.AssignExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.MemberValuePair;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ThisExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithAnnotations;
@@ -39,6 +42,7 @@ import com.github.javaparser.ast.stmt.ReturnStmt;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.type.VoidType;
+import com.github.javaparser.resolution.declarations.ResolvedAnnotationDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
@@ -50,6 +54,12 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeS
 public final class JavaParserUtils {
 
     private static final Log LOG = LogFactory.getLog(JavaParserUtils.class);
+
+    private static final Set<String> PERSISTENCE_ANNOTATION_PACKAGES = Set.of(
+            "javax.persistence",
+            "jakarta.persistence",
+            "org.hibernate.annotations"
+    );
 
     private static final JavaParser JAVA_PARSER = new JavaParser();
 
@@ -315,4 +325,103 @@ public final class JavaParserUtils {
         // Insert constructor at the right position
         clazz.getMembers().add(insertIndex, defaultConstructor);
     }
+
+    public static List<FieldDeclaration> getNonPersistentFields(final CompilationUnit cu) {
+        return cu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                .filter(clazz -> !clazz.isStatic() && isJpaClass(clazz))
+                .flatMap(clazz -> clazz.getFields().stream())
+                .filter(field -> !field.isStatic() && !field.isTransient())
+                .filter(field -> !hasPersistenceAnnotation(field))
+                .toList();
+    }
+
+    private static boolean isJpaClass(final ClassOrInterfaceDeclaration clazz) {
+        if (clazz.isStatic()) {
+            return false;
+        }
+        for (final AnnotationExpr annotation : clazz.getAnnotations()) {
+            try {
+                // Try resolving fully
+                final ResolvedAnnotationDeclaration resolved = annotation.resolve();
+                final String packageName = resolved.getPackageName();
+                final String name = resolved.getName();
+                if ((packageName.equals("javax.persistence") || packageName.equals("jakarta.persistence")) &&
+                        StringUtils.equals("Entity", name)) {
+                    return true;
+                }
+            } catch (final Exception e) {
+                // Fallback: match raw annotation names
+                final String name = annotation.getNameAsString();
+                if (StringUtils.equals("Entity", name)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasPersistenceAnnotation(final FieldDeclaration field) {
+        for (final AnnotationExpr annotation : field.getAnnotations()) {
+            if (isPersistenceAnnotationRecursive(annotation)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isPersistenceAnnotationRecursive(final AnnotationExpr annotation) {
+        // Try resolving the annotation itself
+        if (resolvesToPersistenceAnnotation(annotation)) {
+            return true;
+        }
+
+        // Check nested values (e.g., arrays, nested annotations)
+        if (annotation.isNormalAnnotationExpr()) {
+            for (final MemberValuePair pair : annotation.asNormalAnnotationExpr().getPairs()) {
+                final Expression value = pair.getValue();
+
+                if (value.isAnnotationExpr()) {
+                    if (isPersistenceAnnotationRecursive(value.asAnnotationExpr())) {
+                        return true;
+                    }
+
+                } else if (value.isArrayInitializerExpr()) {
+                    for (final Expression expr : value.asArrayInitializerExpr().getValues()) {
+                        if (expr.isAnnotationExpr()) {
+                            if (isPersistenceAnnotationRecursive(expr.asAnnotationExpr())) {
+                                return true;
+                            }
+                        }
+                    }
+
+                } else {
+                    // Try to parse value as an annotation (e.g. @Column inside @Columns)
+                    try {
+                        final var result = JAVA_PARSER.parseAnnotation(value.toString());
+                        if (result.isSuccessful() && result.getResult().isPresent()) {
+                            final AnnotationExpr maybeAnnotation = result.getResult().get();
+                            if (isPersistenceAnnotationRecursive(maybeAnnotation)) {
+                                return true;
+                            }
+                        }
+                    } catch (final Exception ignored) {}
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean resolvesToPersistenceAnnotation(final AnnotationExpr annotation) {
+        try {
+            final ResolvedAnnotationDeclaration resolved = annotation.resolve();
+            final String packageName = resolved.getPackageName();
+            return PERSISTENCE_ANNOTATION_PACKAGES.stream()
+                    .anyMatch(packageName::startsWith);
+        } catch (final Exception e) {
+            // Can't resolve: assume not persistence-related
+            return false;
+        }
+    }
+
 }
