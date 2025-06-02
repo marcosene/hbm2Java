@@ -564,9 +564,10 @@ public class AnnotationBuilder {
                     break;
 
                 case OneToOne:
-                    if (entityDef.getPrimaryKey() != null &&
+                    final boolean isMapsIdGenerator = entityDef.getPrimaryKey() != null &&
                             "FOREIGN".equals(entityDef.getPrimaryKey().getGeneratorType()) &&
-                            relationship.getName().equals(entityDef.getPrimaryKey().getProperty())) {
+                            relationship.getName().equals(entityDef.getPrimaryKey().getProperty());
+                    if (isMapsIdGenerator) {
                         relationship.addAnnotation("@javax.persistence.MapsId");
                         relationship.addAnnotation("@javax.persistence.JoinColumn(name = \"" +
                                                    entityDef.getPrimaryKey().getColumnName() + "\")");
@@ -578,7 +579,7 @@ public class AnnotationBuilder {
                     if (!relationship.isOptional()) {
                         relationshipAnnotation.append("optional = false, ");
                     }
-                    if (joinColumn.isEmpty()) {
+                    if (joinColumn.isEmpty() && !isMapsIdGenerator) {
                         String mappedBy = relationship.getMappedBy();
                         if (StringUtils.isBlank(mappedBy)) {
                             mappedBy = JavaParserUtils.findVariableNameByType(outputFolder,
