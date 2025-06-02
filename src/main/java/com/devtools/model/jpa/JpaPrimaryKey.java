@@ -40,7 +40,7 @@ public class JpaPrimaryKey extends JpaAbstract {
     }
 
     public String getGeneratorName() {
-        return generatorParams.getOrDefault(PARAMS_SEQUENCE, "");
+        return generatorParams.getOrDefault(PARAMS_SEQUENCE, "").toLowerCase();
     }
 
     public String getIncrementSize() {
