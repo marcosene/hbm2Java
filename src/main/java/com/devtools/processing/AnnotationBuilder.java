@@ -554,7 +554,10 @@ public class AnnotationBuilder {
                             }
                         }
                         relationshipAnnotation.append("mappedBy = \"").append(mappedBy).append("\", ");
+                    } else if (!joinColumn.isEmpty()) {
+                        relationship.addAnnotation(joinColumn.toString());
                     }
+
                     if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
                         relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
                         relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 1); // remove last space
