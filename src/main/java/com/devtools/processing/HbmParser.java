@@ -367,26 +367,34 @@ public class HbmParser {
             final JpaColumn.NaturalId naturalId = "true".equals(mutable) ?
                     JpaColumn.NaturalId.MUTABLE : JpaColumn.NaturalId.IMMUTABLE;
             parsePropertyList(naturalIdElement, entityDef, naturalId);
-            parseRelationships(naturalIdElement, entityDef);
+            parseRelationships(naturalIdElement, entityDef, naturalId);
         }
     }
 
     private void parseRelationships(final Element element, final JpaEntity entityDef) {
-        parseRelationships(null, element, entityDef, null);
+        parseRelationships(null, element, entityDef, null, null);
+    }
+
+    private void parseRelationships(final Element element, final JpaEntity entityDef, final JpaColumn.NaturalId naturalId) {
+        parseRelationships(null, element, entityDef, null, naturalId);
     }
 
     private void parseRelationships(final Element element, final JpaEntity entityDef, final String uniqueConstraintName) {
-        parseRelationships(null, element, entityDef, uniqueConstraintName);
+        parseRelationships(null, element, entityDef, uniqueConstraintName, null);
     }
 
     private void parseRelationships(final JpaRelationship collectionRelationship, final Element element,
-            final JpaEntity entityDef, final String uniqueConstraintName) {
+            final JpaEntity entityDef, final String uniqueConstraintName, final JpaColumn.NaturalId naturalId) {
         final List<Element> manyToOneElements = DomUtils.getChildrenByTag(element, Tags.TAG_MANY_TO_ONE);
         for (final Element relationshipElement : manyToOneElements) {
             final JpaRelationship relationship = new JpaRelationship();
             relationship.setRelationshipType(JpaRelationship.Type.ManyToOne);
             relationship.setFetch("eager");
             parseRelationship(relationship, relationshipElement, entityDef, uniqueConstraintName);
+
+            for(final JpaColumn refColumn : relationship.getReferencedColumns()) {
+                refColumn.setNaturalId(naturalId);
+            }
         }
 
         final List<Element> oneToOneElements = DomUtils.getChildrenByTag(element, Tags.TAG_ONE_TO_ONE);
@@ -499,7 +507,7 @@ public class HbmParser {
         relationship.setTable(collectionElement.getAttribute(Attributes.ATTR_TABLE));
 
         // Find the <one-to-many> or <many-to-many> within the collection
-        parseRelationships(relationship, collectionElement, entityDef, null);
+        parseRelationships(relationship, collectionElement, entityDef, null, null);
 
         relationship.setInverse(Boolean.parseBoolean(collectionElement.getAttribute(Attributes.ATTR_INVERSE)));
         relationship.setCascade(collectionElement.getAttribute(Attributes.ATTR_CASCADE), entityDef.getDefaultCascade());

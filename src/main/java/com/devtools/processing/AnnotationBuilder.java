@@ -118,7 +118,6 @@ public class AnnotationBuilder {
         }
 
         if (StringUtils.isNotBlank(jpaEntity.getCacheUsage())) {
-            jpaEntity.addAnnotation("@javax.persistence.Cacheable");
             switch (jpaEntity.getCacheUsage()) {
                 case "read-only":
                     jpaEntity.addAnnotation("@org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_ONLY)");
@@ -486,9 +485,10 @@ public class AnnotationBuilder {
                 }
             }
 
+            JpaColumn referencedColumn = null;
             final StringBuilder joinColumn = new StringBuilder();
             if (relationship.getReferencedColumns() != null && !relationship.getReferencedColumns().isEmpty()) {
-                final JpaColumn referencedColumn = relationship.getReferencedColumns().get(0);
+                referencedColumn = relationship.getReferencedColumns().get(0);
                 joinColumn.append("@javax.persistence.JoinColumn(");
                 if (StringUtils.isNotBlank(entityDef.getSecondTable())) {
                     joinColumn.append("table = \"").append(entityDef.getSecondTable()).append("\", ");
@@ -501,6 +501,11 @@ public class AnnotationBuilder {
                                 ", foreignKey = @javax.persistence.ForeignKey(name = \"" +
                                 referencedColumn.getForeignKey() + "\")" : "")
                         .append(")");
+            }
+
+            if (referencedColumn != null && referencedColumn.getNaturalId() != JpaColumn.NaturalId.NONE) {
+                relationship.addAnnotation("@org.hibernate.annotations.NaturalId" +
+                        (referencedColumn.getNaturalId() == JpaColumn.NaturalId.MUTABLE ? "(mutable = true)" : ""));
             }
 
             final StringBuilder relationshipAnnotation = new StringBuilder();
@@ -519,6 +524,9 @@ public class AnnotationBuilder {
                     }
                     if (!cascade.isEmpty()) {
                         relationshipAnnotation.append(cascade);
+                    }
+                    if (referencedColumn != null && !referencedColumn.isNullable()) {
+                        relationshipAnnotation.append("optional = false, ");
                     }
                     if (relationshipAnnotation.charAt(relationshipAnnotation.length()-2) == ',') {
                         relationshipAnnotation.deleteCharAt(relationshipAnnotation.length() - 2); // remove last comma
